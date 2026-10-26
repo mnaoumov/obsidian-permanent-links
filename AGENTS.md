@@ -27,6 +27,7 @@ The repo was generated on 2026-10-25 with `create-obsidian-plugin` (preset `all-
 - **A note** keeps its keys in a frontmatter list property, `keys` by default (setting `keyPropertyName`). The key travels with the note: copied out of the vault, synced, or read by another tool, it is still there.
 - **An attachment** cannot carry frontmatter, so its keys live only in the key store.
 - **The key store** is one JSON file, `keys.json` in the plugin's folder, separate from `data.json` so that settings sync does not reload it on every change. It maps every key to the path of its file, for notes as well as attachments, and keeps tombstones. For a note it is a mirror of the frontmatter, rebuilt from it when the two disagree; for an attachment it is the only record.
+- **Not the file's inode.** An inode survives a move on one disk, but a clone, a sync, a restore or another device gives the file a new one; editors that save atomically change it on every save; a freed inode is reused; FAT and exFAT have none; mobile cannot read it; and nobody can see it without a tool. It is at most a local cache hint.
 
 ### What a key looks like
 
