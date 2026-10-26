@@ -1,0 +1,11 @@
+{
+  "author": "mnaoumov",
+  "authorUrl": "https://github.com/mnaoumov/",
+  "description": "Give a note or an attachment a permanent key on request, and open it through a link that keeps working wherever the file moves.",
+  "fundingUrl": "https://www.buymeacoffee.com/mnaoumov",
+  "id": "permanent-links",
+  "isDesktopOnly": false,
+  "minAppVersion": "1.14.5",
+  "name": "Permanent Links",
+  "version": "0.0.0"
+}
