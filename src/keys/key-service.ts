@@ -17,7 +17,7 @@ interface KeyEntry {
 
 interface KeyServiceConstructorParams {
   readonly fileExists: (path: string) => boolean;
-  readonly getNotePaths: () => readonly string[];
+  readonly getNotePaths: () => Promise<readonly string[]> | readonly string[];
   readonly notice: (message: string) => void;
   readonly readNoteKeys: (path: string) => unknown;
   readonly readNoteReceipt: (path: string) => unknown;
@@ -176,7 +176,11 @@ export class KeyService {
 
   public reconcile(notePaths?: readonly string[]): Promise<void> {
     return this.enqueue(async () => {
-      const paths = notePaths ?? this.params.getNotePaths();
+      const paths = notePaths ?? new Set([
+        ...await this.params.getNotePaths(),
+        // A note may have lost its key property while the vault was closed, so it is absent from the index.
+        ...[...this.entries.values()].filter((entry) => entry.path.endsWith('.md')).map((entry) => entry.path)
+      ]);
       for (const path of paths) {
         if (!this.params.fileExists(path)) {
           continue;

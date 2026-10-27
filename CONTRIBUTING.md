@@ -61,6 +61,18 @@ When you add a user-facing feature, add or update its note in the same change.
 
 ## Configuration
 
+### Startup reconciliation benchmark
+
+Build `Advanced Metadata Cache` separately, then point the benchmark at its `dist/build` directory. The benchmark copies that build into an isolated test vault; it does not change that checkout. It creates 37,000 notes, with permanent keys on 100, and alternates six indexed and six fallback reloads. It checks identical stores and records elapsed time, vault walks and metadata reads.
+
+```powershell
+$env:PERMANENT_LINKS_AMC_BUILD_PATH = 'F:/dev/projects/@obsidian/obsidian-advanced-metadata-cache/dist/build'
+npm run build
+npm run test:integration:desktop:performance
+```
+
+The timings measure this plugin's warm reconciliation, including plugin reload and readiness polling. AMC registration and its safe index wait are completed before each indexed measurement; the initial registration/wait is reported separately. These timings do not claim a reduction in Obsidian's total cold-start time: AMC must first rebuild or refresh its own index. The benchmark uses one worker.
+
 This project was scaffolded with [`create-obsidian-plugin`](https://github.com/mnaoumov/create-obsidian-plugin). Run `npx @mnaoumov/create-obsidian-plugin` again in the project directory to update configuration.
 
 ## Pull Requests

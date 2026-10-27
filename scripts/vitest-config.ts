@@ -65,6 +65,9 @@ export const config = defineObsidianPluginVitestConfig({
   // Pattern MATCHED, so `/\.svelte$/` rewrites the extension and leaves the rest of the specifier glued
   // To the front of the stub path. The pattern has to cover the whole id.
   editContext(context: ObsidianPluginVitestConfigContext): void {
+    context.desktopPerformance.globalSetup = ['./scripts/startup-performance-global-setup.ts'];
+    context.desktopPerformance.maxWorkers = 1;
+    context.desktopPerformance.setupFiles = ['obsidian-integration-testing/vitest-setup', '@mnaoumov/obsidian-dev-toolkit/integration-test-setup'];
     context.unitTests.maxWorkers = MAX_WORKERS;
     context.unitTests.alias = [
       { find: /^.+\.(?:svelte|vue)$/u, replacement: FRAMEWORK_COMPONENT_STUB_PATH },
