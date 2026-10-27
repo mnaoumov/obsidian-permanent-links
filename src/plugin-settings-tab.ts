@@ -20,6 +20,15 @@ export class PluginSettingsTab extends PluginSettingsTabBase<PluginSettings> {
             this.bind({ propertyName: 'keyPropertyName', valueComponent: text });
           });
         }
+      }),
+      this.settingEx({
+        desc: 'When a key is unknown, open a file with that unique name (without its extension). Ambiguous names never open a file.',
+        name: 'Resolve unique file names',
+        render: (setting) => {
+          setting.addToggle((toggle) => {
+            this.bind({ propertyName: 'shouldResolveUniqueFileNames', valueComponent: toggle });
+          });
+        }
       })
     ];
   }
