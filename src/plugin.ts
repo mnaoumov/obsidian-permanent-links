@@ -24,6 +24,7 @@ import { KeyCommandHandler } from './keys/key-command-handler.ts';
 import { resolveKeyEdit } from './keys/key-edit-modal.ts';
 import { KeyService } from './keys/key-service.ts';
 import { LinkResolver } from './keys/link-resolver.ts';
+import { getStartupNotePaths } from './keys/startup-note-paths.ts';
 import { TombstoneCommandHandler } from './keys/tombstone-command-handler.ts';
 import { PluginSettingsComponent } from './plugin-settings-component.ts';
 import { PluginSettingsTab } from './plugin-settings-tab.ts';
@@ -104,7 +105,7 @@ export class Plugin extends PluginBase {
     const storePath = normalizePath(`${this.app.vault.configDir}/plugins/${this.manifest.id}/keys.json`);
     const service = new KeyService({
       fileExists: (path): boolean => this.app.vault.getFileByPath(path) !== null,
-      getNotePaths: (): string[] => this.app.vault.getMarkdownFiles().map((file) => file.path),
+      getNotePaths: (): Promise<string[]> => getStartupNotePaths(this.app, propertyName),
       notice: (message): void => {
         this.pluginNoticeComponent.showNotice(message);
       },
