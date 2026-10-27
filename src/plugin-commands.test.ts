@@ -34,6 +34,9 @@ vi.mock('@mnaoumov/obsidian-lib/modals/confirm', () => ({ confirm: vi.fn() }));
 vi.mock('@mnaoumov/obsidian-lib/modals/select-item', () => ({ selectItem: vi.fn() }));
 vi.mock('./keys/key-edit-modal.ts', () => ({ resolveKeyEdit: vi.fn() }));
 
+// Export spies need the module object rather than individual function bindings.
+const vaultNavigation = await import('./keys/vault-navigation.ts');
+
 interface PluginInternals {
   readonly copyLink: (file: TFile) => Promise<void>;
   readonly getKeyService: () => KeyService;
@@ -44,7 +47,7 @@ interface PluginInternals {
   readonly pluginSettingsComponent: PluginSettingsComponent;
   readonly removeKey: (file: TFile) => Promise<void>;
   readonly requireFile: (path: string) => TFile;
-  readonly resolveMissingPath: (path: string) => Promise<void>;
+  readonly resolveMissingPath: (path: string, query?: Partial<import('obsidian').ObsidianProtocolData>) => Promise<void>;
   readonly setKey: (file: TFile) => Promise<void>;
 }
 
@@ -70,6 +73,108 @@ async function createFixture(): Promise<PluginFixture> {
 }
 
 describe('plugin key commands', () => {
+  it('trusts a moved-folder answer, forwards the triggering link and reuses persisted forwarding', async () => {
+    const { api, app, file, internals, plugin } = await createFixture();
+    await app.vault.createFolder('gone');
+    const first = await app.vault.create('gone/first.md', 'Body');
+    const second = await app.vault.create('gone/second.pdf', 'Data');
+    await api.addKey(first, 'first');
+    await api.addKey(first, 'alias');
+    await api.addKey(second, 'second');
+    await api.addKey(file, 'live');
+    const folder = ensureNonNullable(app.vault.getFolderByPath('gone'));
+    await app.fileManager.trashFile(folder);
+    await vi.waitFor(() => {
+      expect(internals.getKeyService().listTombstones()).toHaveLength(3);
+    });
+    vi.spyOn(vaultNavigation, 'listVaults').mockReturnValue([{ name: 'Other', path: '/Other' }, { name: app.vault.getName(), path: '/Current' }]);
+    const open = vi.spyOn(vaultNavigation, 'openVaultUri').mockImplementation(() => undefined);
+    const notice = vi.spyOn(PluginNoticeComponent.prototype, 'showNotice');
+    vi.mocked(selectItem).mockResolvedValueOnce('I moved folder gone to another vault').mockResolvedValueOnce({ name: 'Other', path: '/Other' });
+    await internals.resolveMissingPath('gone/first.md', { heading: 'Title', key: 'first' });
+    expect(internals.getKeyService().lookup('alias')?.forwardVault).toBe('Other');
+    expect(internals.getKeyService().lookup('second')?.forwardVault).toBe('Other');
+    expect(api.resolve('live')).toBe(file);
+    expect(open).toHaveBeenCalledWith(app, expect.stringContaining('heading=Title'));
+    const destinationPicker = ensureNonNullable(vi.mocked(selectItem).mock.calls.at(-1)?.[0]);
+    expect(destinationPicker.itemTextFunction({ name: 'Other', path: '/Other' })).toContain('/Other');
+    expect(destinationPicker.itemTextFunction({ name: 'Choose', path: '' })).toBe('Choose');
+    expect(destinationPicker.items).not.toContainEqual({ name: app.vault.getName(), path: '/Current' });
+    await internals.openPermanentLink({ key: 'first' }, internals.pluginSettingsComponent);
+    expect(open).toHaveBeenCalledTimes(2);
+    expect(notice).toHaveBeenCalledWith(expect.any(DocumentFragment), { isPermanent: true });
+    plugin.unload();
+  });
+
+  it('supports vault and folder cancellation, folder selection and unavailable navigation', async () => {
+    const { api, app, file, internals, plugin } = await createFixture();
+    await api.addKey(file, 'note');
+    await app.fileManager.trashFile(file);
+    await vi.waitFor(() => {
+      expect(internals.getKeyService().listTombstones()).toHaveLength(1);
+    });
+    const list = vi.spyOn(vaultNavigation, 'listVaults').mockReturnValue([]);
+    const pick = vi.spyOn(vaultNavigation, 'pickVaultFolder').mockResolvedValue(null);
+    const notice = vi.spyOn(PluginNoticeComponent.prototype, 'showNotice');
+    const choice = 'I moved file note.md to another vault';
+    vi.mocked(selectItem).mockResolvedValueOnce(choice).mockResolvedValueOnce(null);
+    await internals.resolveMissingPath('note.md');
+    expect(pick).not.toHaveBeenCalled();
+    vi.mocked(selectItem).mockResolvedValueOnce(choice).mockResolvedValueOnce({ name: 'Choose', path: '' });
+    await internals.resolveMissingPath('note.md');
+    expect(pick).toHaveBeenCalledTimes(1);
+    pick.mockResolvedValue({ name: 'Chosen', path: '/Chosen' });
+    vi.mocked(selectItem).mockResolvedValueOnce(choice).mockResolvedValueOnce({ name: 'Choose', path: '' });
+    await internals.resolveMissingPath('note.md');
+    expect(internals.getKeyService().lookup('note')?.forwardVault).toBe('Chosen');
+    pick.mockResolvedValue({ name: app.vault.getName(), path: '/Current' });
+    vi.mocked(selectItem).mockResolvedValueOnce(choice).mockResolvedValueOnce({ name: 'Choose', path: '' });
+    await internals.resolveMissingPath('note.md');
+    expect(notice).toHaveBeenCalledWith(expect.stringContaining('Choose a different'));
+    list.mockImplementation(() => {
+      throw new Error('Unavailable');
+    });
+    vi.mocked(selectItem).mockResolvedValueOnce(choice);
+    await internals.resolveMissingPath('note.md');
+    expect(notice).toHaveBeenCalledWith(expect.stringContaining('Could not select'));
+    plugin.unload();
+  });
+
+  it('offers correction on a tombstone notice and copies the replacement URI from forwarding notices', async () => {
+    const { api, app, file, internals, plugin } = await createFixture();
+    await api.addKey(file, 'note');
+    await app.fileManager.trashFile(file);
+    await vi.waitFor(() => {
+      expect(internals.getKeyService().listTombstones()).toHaveLength(1);
+    });
+    const notice = vi.spyOn(PluginNoticeComponent.prototype, 'showNotice').mockImplementation(() => castTo<ReturnType<PluginNoticeComponent['showNotice']>>({}));
+    await internals.openPermanentLink({ key: 'note' }, internals.pluginSettingsComponent);
+    const correction = notice.mock.lastCall?.[0];
+    expect(correction).toBeInstanceOf(DocumentFragment);
+    vi.mocked(selectItem).mockResolvedValueOnce(null);
+    if (correction instanceof DocumentFragment) {
+      correction.querySelector('button')?.click();
+    }
+    await vi.waitFor(() => {
+      expect(selectItem).toHaveBeenCalled();
+    });
+    await internals.getKeyService().forwardPath('note.md', 'Unregistered');
+    vi.spyOn(vaultNavigation, 'listVaults').mockReturnValue([]);
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+    await internals.openPermanentLink({ key: 'note' }, internals.pluginSettingsComponent);
+    const forwarding = notice.mock.lastCall?.[0];
+    expect(forwarding).toBeInstanceOf(DocumentFragment);
+    if (forwarding instanceof DocumentFragment) {
+      forwarding.querySelector('button')?.click();
+    }
+    await vi.waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith(expect.stringContaining('vault=Unregistered'));
+    });
+    expect(notice).toHaveBeenCalledWith('New permanent link copied.');
+    plugin.unload();
+  });
+
   it('publishes the merge API and preserves transferred keys through metadata events', async () => {
     const { api, app, file, internals, plugin } = await createFixture();
     const target = await app.vault.create('target.md', 'Target body');

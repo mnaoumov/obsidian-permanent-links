@@ -8,7 +8,9 @@ import {
 } from './key.ts';
 
 interface LinkResolverConstructorParams {
+  readonly deleted?: (message: string, path: string) => void;
   readonly fileExists: (path: string) => boolean;
+  readonly forward?: (vault: string, query: Partial<ObsidianProtocolData>) => Promise<void>;
   readonly getFilePaths: () => readonly string[];
   readonly getVaultName: () => string;
   readonly lookup: (key: string) => ResolverEntry | undefined;
@@ -20,6 +22,7 @@ interface LinkResolverConstructorParams {
 
 interface ResolverEntry {
   readonly deletedAt?: string;
+  readonly forwardVault?: string;
   readonly path: string;
 }
 
@@ -47,10 +50,17 @@ export class LinkResolver {
     }
     const entry = this.params.lookup(key);
     if (entry) {
-      if (this.params.fileExists(entry.path)) {
+      if (entry.forwardVault && this.params.forward) {
+        await this.params.forward(entry.forwardVault, query);
+      } else if (this.params.fileExists(entry.path)) {
         await this.params.open(entry.path, query);
       } else if (entry.deletedAt) {
-        this.params.notice(`File with key ${key} was deleted on ${entry.deletedAt}. Last known location: ${entry.path}`);
+        const message = `File with key ${key} was deleted on ${entry.deletedAt}. Last known location: ${entry.path}`;
+        if (this.params.deleted) {
+          this.params.deleted(message, entry.path);
+        } else {
+          this.params.notice(message);
+        }
       } else {
         await this.params.missing(entry.path);
       }

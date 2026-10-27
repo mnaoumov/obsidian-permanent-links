@@ -22,10 +22,16 @@ import type { PermanentLinksApi } from '../api.d.ts';
 
 import { KeyCommandHandler } from './keys/key-command-handler.ts';
 import { resolveKeyEdit } from './keys/key-edit-modal.ts';
+import { KeyForwarder } from './keys/key-forwarder.ts';
 import { KeyService } from './keys/key-service.ts';
 import { LinkResolver } from './keys/link-resolver.ts';
 import { getStartupNotePaths } from './keys/startup-note-paths.ts';
 import { TombstoneCommandHandler } from './keys/tombstone-command-handler.ts';
+import {
+  listVaults,
+  openVaultUri,
+  pickVaultFolder
+} from './keys/vault-navigation.ts';
 import { PluginSettingsComponent } from './plugin-settings-component.ts';
 import { PluginSettingsTab } from './plugin-settings-tab.ts';
 
@@ -88,6 +94,18 @@ export class Plugin extends PluginBase {
     // eslint-disable-next-line n/no-unsupported-features/node-builtins -- Uses the browser clipboard in Obsidian's renderer.
     await window.navigator.clipboard.writeText(link);
     this.pluginNoticeComponent.showNotice('Permanent link copied.');
+  }
+
+  private forwardPermanentLink(vault: string, query: Partial<ObsidianProtocolData>): Promise<void> {
+    return new KeyForwarder({
+      listVaultNames: (): string[] => listVaults(this.app).map((value) => value.name),
+      notice: (message, link): void => {
+        this.showForwardingNotice(message, link);
+      },
+      open: (url): void => {
+        openVaultUri(this.app, url);
+      }
+    }).forward(vault, query);
   }
 
   private getKeyService(): KeyService {
@@ -192,7 +210,7 @@ export class Plugin extends PluginBase {
     }
   }
 
-  private async openPermanentLink(params: ObsidianProtocolData, settings: PluginSettingsComponent): Promise<void> {
+  private async openPermanentLink(params: Partial<ObsidianProtocolData>, settings: PluginSettingsComponent): Promise<void> {
     if (!this.keysReady) {
       this.addChild(new CallbackLayoutReadyComponent(this.app, () => this.openPermanentLink(params, settings)));
       return;
@@ -200,11 +218,23 @@ export class Plugin extends PluginBase {
     await this.keysReady;
     const service = this.getKeyService();
     const resolver = new LinkResolver({
+      deleted: (message, path): void => {
+        const fragment = createFragment();
+        fragment.append(message, ' ');
+        const button = createEl('button');
+        button.textContent = 'Correct location';
+        button.addEventListener('click', () => {
+          invokeAsyncSafely(() => this.resolveMissingPath(path, params));
+        });
+        fragment.append(button);
+        this.pluginNoticeComponent.showNotice(fragment);
+      },
       fileExists: (path): boolean => this.app.vault.getFileByPath(path) !== null,
+      forward: (vault, query): Promise<void> => this.forwardPermanentLink(vault, query),
       getFilePaths: (): string[] => this.app.vault.getFiles().map((file) => file.path),
       getVaultName: (): string => this.app.vault.getName(),
       lookup: (key): ReturnType<KeyService['lookup']> => service.lookup(key),
-      missing: (path): Promise<void> => this.resolveMissingPath(path),
+      missing: (path): Promise<void> => this.resolveMissingPath(path, params),
       notice: (message): void => {
         this.pluginNoticeComponent.showNotice(message);
       },
@@ -253,7 +283,7 @@ export class Plugin extends PluginBase {
     return file;
   }
 
-  private async resolveMissingPath(path: string): Promise<void> {
+  private async resolveMissingPath(path: string, query: Partial<ObsidianProtocolData> = {}): Promise<void> {
     const parts = path.split('/');
     parts.pop();
     let missingFolder = '';
@@ -268,18 +298,53 @@ export class Plugin extends PluginBase {
     const hasMissingFolder = missingFolder !== '' && !this.app.vault.getFolderByPath(missingFolder);
     const fileChoice = `I removed file ${path}`;
     const folderChoice = `I removed folder ${missingFolder}`;
+    const movedFileChoice = `I moved file ${path} to another vault`;
+    const movedFolderChoice = `I moved folder ${missingFolder} to another vault`;
     const choice = await selectItem({
       app: this.app,
-      items: hasMissingFolder ? ['I don\'t know', folderChoice, fileChoice] : ['I don\'t know', fileChoice],
+      items: hasMissingFolder ? ['I don\'t know', folderChoice, fileChoice, movedFolderChoice, movedFileChoice] : ['I don\'t know', fileChoice, movedFileChoice],
       itemTextFunction: (value): string => value,
       placeholder: `File not found. Last known location: ${path}${hasMissingFolder ? `. Folder ${missingFolder} is also missing.` : ''}`
     });
+    if (choice === movedFileChoice || choice === movedFolderChoice) {
+      await this.resolveMovedPath(choice === movedFolderChoice ? missingFolder : path, query);
+      return;
+    }
     if (!(choice === fileChoice || choice === folderChoice)) {
       return;
     }
 
     await this.getKeyService().deletePath(choice === folderChoice ? missingFolder : path);
     this.pluginNoticeComponent.showNotice('The deleted location has been recorded.');
+  }
+
+  private async resolveMovedPath(path: string, query: Partial<ObsidianProtocolData>): Promise<void> {
+    try {
+      const otherFolder = { name: 'Choose another vault folder...', path: '' };
+      const vault = await selectItem({
+        app: this.app,
+        items: [...listVaults(this.app).filter((value) => value.name.toLowerCase() !== this.app.vault.getName().toLowerCase()), otherFolder],
+        itemTextFunction: (value): string => value.path ? `${value.name} - ${value.path}` : value.name,
+        placeholder: 'Destination vault. For attachments, use Set key in that vault with the same key, or its unique-name fallback.'
+      });
+      if (!vault) {
+        return;
+      }
+      const destination = vault.path ? vault : await pickVaultFolder(this.app);
+      if (!destination) {
+        return;
+      }
+      if (destination.name.toLowerCase() === this.app.vault.getName().toLowerCase()) {
+        throw new Error('Choose a different destination vault.');
+      }
+      await this.getKeyService().forwardPath(path, destination.name);
+      const target = query['key'] ? this.getKeyService().lookup(query['key'])?.forwardVault : undefined;
+      if (target) {
+        await this.forwardPermanentLink(target, query);
+      }
+    } catch (error) {
+      this.pluginNoticeComponent.showNotice(`Could not select the destination vault. ${String(error)}`);
+    }
   }
 
   private async setKey(file: TFile): Promise<void> {
@@ -300,6 +365,22 @@ export class Plugin extends PluginBase {
     if (key !== null) {
       await service.addKey(file.path, key);
     }
+  }
+
+  private showForwardingNotice(message: string, link: string): void {
+    const fragment = createFragment();
+    fragment.append(message, ' ', link, ' ');
+    const button = createEl('button');
+    button.textContent = 'Copy new link';
+    button.addEventListener('click', () => {
+      invokeAsyncSafely(async () => {
+        // eslint-disable-next-line n/no-unsupported-features/node-builtins -- Uses the browser clipboard in Obsidian's renderer.
+        await window.navigator.clipboard.writeText(link);
+        this.pluginNoticeComponent.showNotice('New permanent link copied.');
+      });
+    });
+    fragment.append(button);
+    this.pluginNoticeComponent.showNotice(fragment, { isPermanent: true });
   }
 }
 // Cspell:words openmode

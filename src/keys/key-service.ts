@@ -11,6 +11,7 @@ import {
 
 interface KeyEntry {
   readonly deletedAt?: string;
+  readonly forwardVault?: string;
   readonly key: string;
   readonly path: string;
 }
@@ -72,8 +73,22 @@ export class KeyService {
     return this.enqueue(async () => {
       const deletedAt = new Date().toISOString();
       for (const [identity, entry] of this.entries) {
-        if (this.matchesPath(entry.path, path) && !entry.deletedAt && !this.params.fileExists(entry.path)) {
+        if (this.matchesPath(entry.path, path) && !entry.deletedAt && !entry.forwardVault && !this.params.fileExists(entry.path)) {
           this.entries.set(identity, { ...entry, deletedAt });
+        }
+      }
+      await this.save();
+    });
+  }
+
+  public forwardPath(path: string, vault: string): Promise<void> {
+    return this.enqueue(async () => {
+      if (!vault.trim()) {
+        throw new Error('Invalid forwarding vault.');
+      }
+      for (const [identity, entry] of this.entries) {
+        if (this.matchesPath(entry.path, path) && !this.params.fileExists(entry.path)) {
+          this.entries.set(identity, { forwardVault: vault, key: entry.key, path: entry.path });
         }
       }
       await this.save();
@@ -108,6 +123,12 @@ export class KeyService {
           throw new Error(`Duplicate key in keys.json: ${key}`);
         }
         const parsed: KeyEntry = { key, path: entry.path };
+        if ('forwardVault' in entry) {
+          if (typeof entry.forwardVault !== 'string' || !entry.forwardVault.trim()) {
+            throw new TypeError('Invalid keys.json forwarding vault.');
+          }
+          Object.assign(parsed, { forwardVault: entry.forwardVault });
+        }
         if ('deletedAt' in entry) {
           if (typeof entry.deletedAt !== 'string' || !Number.isFinite(Date.parse(entry.deletedAt))) {
             throw new TypeError('Invalid keys.json deletion time.');
