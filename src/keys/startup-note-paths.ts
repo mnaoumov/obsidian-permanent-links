@@ -6,8 +6,8 @@ import { findPluginApi } from '@mnaoumov/obsidian-lib/plugin/plugin-api';
 The consumed subset of `Advanced Metadata Cache`'s self-contained API, contract `1.4.0`.
 */
 interface PropertyIndexApi {
-  getPathsWithPropertySafe: (propertyName: string) => Promise<null | string[]>;
-  registerPropertyName: (propertyName: string) => void;
+  readonly getPathsWithPropertySafe: (propertyName: string) => Promise<null | string[]>;
+  readonly registerPropertyName: (propertyName: string) => void;
 }
 
 export async function getStartupNotePaths(app: App, propertyName: string): Promise<string[]> {

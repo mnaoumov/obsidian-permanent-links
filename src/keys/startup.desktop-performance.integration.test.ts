@@ -15,8 +15,8 @@ interface Measurement {
 }
 
 interface PropertyIndexApi {
-  getPathsWithPropertySafe: (propertyName: string) => Promise<null | string[]>;
-  registerPropertyName: (propertyName: string) => void;
+  readonly getPathsWithPropertySafe: (propertyName: string) => Promise<null | string[]>;
+  readonly registerPropertyName: (propertyName: string) => void;
 }
 
 it('reconciles the same identities with the property index and a full walk on 37000 notes', async () => {
