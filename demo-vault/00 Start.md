@@ -21,11 +21,12 @@ Every button in this vault also states its **manual equivalent**, so you learn t
 
 ## Features
 
-| Note | What it covers |
-| --- | --- |
-| [01 Sample commands](<./01 Sample commands.md>) | The commands the plugin adds, and how to run them. |
-| [02 Settings](<./02 Settings.md>) | Every setting, by the key it is stored under in `data.json`. |
-| [03 Key conflicts](<./03 Key conflicts.md>) | Duplicate repair and the safe choices when a key changes. |
+| Note                                                        | What it covers                                               |
+| ----------------------------------------------------------- | ------------------------------------------------------------ |
+| [01 Sample commands](<./01 Sample commands.md>)             | The commands the plugin adds, and how to run them.           |
+| [02 Settings](<./02 Settings.md>)                           | Every setting, by the key it is stored under in `data.json`. |
+| [03 Key conflicts](<./03 Key conflicts.md>)                 | Duplicate repair and the safe choices when a key changes.    |
+| [04 Moving between vaults](<./04 Moving between vaults.md>) | Trusted move answers, forwarding and attachment handoff.     |
 
 ## Materials
 

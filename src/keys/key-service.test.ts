@@ -33,6 +33,43 @@ function createService(raw: unknown = null): ServiceFixture {
 }
 
 describe('KeyService', () => {
+  it('forwards every missing identity in a subtree, including tombstones, and preserves other files', async () => {
+    const { files, service, writeStore } = createService([
+      { deletedAt: '2026-10-25T00:00:00.000Z', key: 'note', path: 'gone/note.md' },
+      { key: 'alias', path: 'gone/note.md' },
+      { key: 'image', path: 'gone/image.png' },
+      { key: 'live', path: 'report.pdf' },
+      { key: 'outside', path: 'gone-other/file.pdf' }
+    ]);
+    await service.load();
+    await service.forwardPath('gone', 'Destination');
+    expect(service.lookup('note')).toEqual({ forwardVault: 'Destination', key: 'note', path: 'gone/note.md' });
+    expect(service.lookup('alias')?.forwardVault).toBe('Destination');
+    expect(service.lookup('image')?.forwardVault).toBe('Destination');
+    expect(service.lookup('outside')?.forwardVault).toBeUndefined();
+    await service.deletePath('gone');
+    expect(service.listTombstones()).toEqual([]);
+    await service.forwardPath('report.pdf', 'Destination');
+    expect(service.resolve('live')?.path).toBe('report.pdf');
+    const restarted = createService(writeStore.mock.lastCall?.[0]);
+    await restarted.service.load();
+    expect(restarted.service.lookup('image')?.forwardVault).toBe('Destination');
+    files.set('gone/image.png', undefined);
+    await service.revivePath('gone/image.png');
+    expect(service.lookup('image')).toEqual({ key: 'image', path: 'gone/image.png' });
+  });
+
+  it('refuses malformed forwarding destinations without overwriting the store', async () => {
+    for (const forwardVault of ['', 42, null]) {
+      const { service, writeStore } = createService([{ forwardVault, key: 'key', path: 'gone.pdf' }]);
+      await expect(service.load()).rejects.toThrow('forwarding vault');
+      expect(writeStore).not.toHaveBeenCalled();
+    }
+    const { service } = createService();
+    await service.load();
+    await expect(service.forwardPath('gone', '')).rejects.toThrow('forwarding vault');
+  });
+
   it('serializes competing transfers without losing destination aliases', async () => {
     const { files, service } = createService();
     files.set('target.md', undefined);
