@@ -10,6 +10,9 @@ import { fileURLToPath } from 'node:url';
  * its own file suffix so the desktop project does not also collect it and open it against a vault with no
  * notes in it.
  */
+const MAX_WORKERS = 2;
+const MIN_COVERAGE_IN_PERCENTS = 100;
+
 const DEMO_VAULT_TEST_FILES = 'src/**/*.demo-vault.integration.test.ts';
 
 /**
@@ -62,6 +65,7 @@ export const config = defineObsidianPluginVitestConfig({
   // Pattern MATCHED, so `/\.svelte$/` rewrites the extension and leaves the rest of the specifier glued
   // To the front of the stub path. The pattern has to cover the whole id.
   editContext(context: ObsidianPluginVitestConfigContext): void {
+    context.unitTests.maxWorkers = MAX_WORKERS;
     context.unitTests.alias = [
       { find: /^.+\.(?:svelte|vue)$/u, replacement: FRAMEWORK_COMPONENT_STUB_PATH },
       { find: /^.+\.(?:css|scss)$/u, replacement: STYLESHEET_STUB_PATH },
@@ -72,3 +76,16 @@ export const config = defineObsidianPluginVitestConfig({
     ];
   }
 });
+
+config.test = {
+  ...config.test,
+  coverage: {
+    ...config.test?.coverage,
+    thresholds: {
+      branches: MIN_COVERAGE_IN_PERCENTS,
+      functions: MIN_COVERAGE_IN_PERCENTS,
+      lines: MIN_COVERAGE_IN_PERCENTS,
+      statements: MIN_COVERAGE_IN_PERCENTS
+    }
+  }
+};

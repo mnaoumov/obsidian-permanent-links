@@ -16,7 +16,13 @@ What already exists, so the plugin does not rebuild it:
 
 ## Current state
 
-The repo was generated on 2026-10-25 with `create-obsidian-plugin` (preset `all-in-one`, CSS, desktop and mobile, the unofficial API subset, no editor extensions). Its answers are in `.create-obsidian-plugin.json`, so re-running the generator in this folder updates every file not edited by hand. `src/` is still the generated sample; nothing below is built yet.
+The repo was generated on 2026-10-25 with `create-obsidian-plugin` (preset `all-in-one`, CSS, desktop and mobile, the unofficial API subset, no editor extensions). Its answers are in `.create-obsidian-plugin.json`, so re-running the generator in this folder updates every file not edited by hand.
+
+The core key service and commands are implemented. `src/keys/` owns Unicode validation, random generation, the in-memory key map and serialized mutations. `src/plugin.ts` wires storage, frontmatter, metadata and rename events, the three file commands and the versioned API. Commands use `obsidian-lib`'s file command handlers, which also provide file context menus. `api.d.ts` is the self-contained read/assign API contract, version `1.0.0`, published under `permanent-links`; it resolves live files and returns `null` for unknown or deleted files. Calls before startup reconciliation finishes report that the vault is not ready.
+
+Startup reconciliation runs after layout readiness, walking the metadata cache through the vault's Markdown files. Subsequent metadata changes reconcile the changed note only. Mutations run in a queue; failures propagate to their caller without poisoning the queue, and identical snapshots are not written again. `keys.json` is a readable JSON array of `{ key, path }` records, with normalized identities held in a map for lookup. Notes use the configurable `keyPropertyName` list (default `keys`); changing the setting requires a reload and does not migrate the old property. Attachments use the store alone. File and folder renames update mapped paths. Keys for missing files remain reserved, but have no deletion timestamp yet.
+
+Copy permanent link reuses the first key or generates one; Set key adds an alias, preserving prior links; Remove key selects an alias when needed and asks before removing it. The store refuses malformed data without overwriting it. Duplicate ownership stays with the previously mapped file during reconciliation. The resolver, tombstone detail, duplicate repair, hand-edit dialog, merge handling and optional metadata-index acceleration described below are design targets. The demo vault still contains generated sample content, to be replaced when the full feature set is ready. Unit coverage is enforced at 100%; behavioral command tests live alongside the key implementation and run on desktop and Android.
 
 ## Design
 
@@ -34,7 +40,7 @@ The repo was generated on 2026-10-25 with `create-obsidian-plugin` (preset `all-
 - **Generated:** 12 random characters from `a-z0-9`, the same shape as a generated attachment name.
 - **Typed by the user**, like a readable block id: letters and digits of any script (`\p{L}`, `\p{M}`, `\p{N}`), `-` and `_`, 1 to 64 characters, normalized to NFC. Not ASCII-only. Rejected: spaces, `/`, `#`, `^`, `|`, `[`, `]`, and anything a URI or a wikilink would need to escape beyond percent-encoding.
 - **Unique per vault**, compared case-insensitively after NFC normalization, so `Charlie` and `charlie` cannot both exist. A link carries the vault name as well, so the same key in two vaults never opens the wrong file.
-- **An attachment's first key** is offered as its current basename when that basename already has the generated shape, so a reference that already quotes the name keeps meaning the same file.
+- **An attachment's key** is generated independently of its filename, just like a note's. Ordinary names such as `report.pdf` and `Screenshot 2026-10-25.png` need no naming convention. A user who wants a filename as a readable key can use Set key explicitly.
 
 ### Commands and the link
 
