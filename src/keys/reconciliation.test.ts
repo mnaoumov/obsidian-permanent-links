@@ -42,6 +42,23 @@ function fixture(): Fixture {
 }
 
 describe('frontmatter reconciliation', () => {
+  it('reserves missing and deleted source identities when core merges their frontmatter into another note', async () => {
+    const { files, service } = fixture();
+    await service.load();
+    files.delete('note.md');
+    files.set('target.md', ['A', 'primary']);
+    await service.reconcile(['target.md']);
+    expect(service.getKeys('note.md')).toEqual(['A']);
+    expect(files.get('target.md')).toEqual(['primary']);
+    await service.reconcile(['target.md']);
+    await service.deletePath('note.md');
+    files.set('target.md', ['A', 'primary']);
+    await service.reconcile(['target.md']);
+    expect(service.lookup('A')?.deletedAt).toBeDefined();
+    expect(files.get('target.md')).toEqual(['primary']);
+    await service.moveKeys('note.md', 'target.md');
+    expect(service.getKeys('target.md')).toEqual(['primary', 'A']);
+  });
   it('ignores removed paths and delayed metadata from before a plugin write', async () => {
     const { files, resolveKeyEdit, service, writeNoteKeys } = fixture();
     await service.load();

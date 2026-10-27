@@ -57,6 +57,7 @@ const STORE_SUFFIX = '/plugins/permanent-links/keys.json';
 async function createFixture(): Promise<PluginFixture> {
   const mockApp = App.createConfigured__();
   const app = mockApp.asOriginalType__();
+  app.internalPlugins = castTo<typeof app.internalPlugins>({ getPluginById: () => null });
   const file = await app.vault.create('note.md', 'Body\n');
   await app.vault.adapter.mkdir(`${app.vault.configDir}/plugins`);
   await app.vault.adapter.mkdir(`${app.vault.configDir}/plugins/permanent-links`);
@@ -251,6 +252,7 @@ describe('plugin key commands', () => {
   it('queues links received before layout readiness', async () => {
     const mockApp = App.createConfigured__();
     const app = mockApp.asOriginalType__();
+    app.internalPlugins = castTo<typeof app.internalPlugins>({ getPluginById: () => null });
     await app.vault.adapter.mkdir(`${app.vault.configDir}/plugins`);
     await app.vault.adapter.mkdir(`${app.vault.configDir}/plugins/permanent-links`);
     const plugin = new Plugin(app, MANIFEST);
@@ -457,6 +459,7 @@ describe('plugin key commands', () => {
   it('retains a frontmatter change arriving while startup persistence is pending', async () => {
     const mockApp = App.createConfigured__();
     const app = mockApp.asOriginalType__();
+    app.internalPlugins = castTo<typeof app.internalPlugins>({ getPluginById: () => null });
     const file = await app.vault.create('startup.md', 'Body');
     await app.vault.adapter.mkdir(`${app.vault.configDir}/plugins`);
     await app.vault.adapter.mkdir(`${app.vault.configDir}/plugins/permanent-links`);
