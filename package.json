@@ -2,11 +2,11 @@
   "name": "permanent-links",
   "version": "0.0.0",
   "description": "Give a note or an attachment a permanent key on request, and open it through a link that keeps working wherever the file moves.",
-  "type": "module",
-  "main": "main.js",
   "keywords": [],
   "license": "MIT",
   "author": "mnaoumov",
+  "type": "module",
+  "main": "main.js",
   "scripts": {
     "build": "jiti scripts/build.ts",
     "build:clean": "jiti scripts/build-clean.ts",
@@ -35,15 +35,15 @@
     "test:watch": "jiti scripts/test-watch.ts",
     "version": "jiti scripts/version.ts"
   },
-  "overrides": {
-    "typescript": "$typescript",
-    "@puppeteer/browsers": "^3.2.1",
-    "deepmerge-ts": "^8.0.2"
-  },
   "resolutions": {
-    "typescript": "6.0.3",
     "@puppeteer/browsers": "^3.2.1",
-    "deepmerge-ts": "^8.0.2"
+    "deepmerge-ts": "^8.0.2",
+    "typescript": "6.0.3"
+  },
+  "overrides": {
+    "@puppeteer/browsers": "^3.2.1",
+    "deepmerge-ts": "^8.0.2",
+    "typescript": "$typescript"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.2.4",
@@ -66,7 +66,7 @@
     "markdownlint-cli2": "^0.24.0",
     "nano-staged": "^1.0.2",
     "obsidian": "^1.14.4",
-    "obsidian-integration-testing": "^17.5.1",
+    "obsidian-integration-testing": "^17.6.1",
     "obsidian-test-mocks": "^7.3.0",
     "tslib": "^2.8.1",
     "typescript": "6.0.3",

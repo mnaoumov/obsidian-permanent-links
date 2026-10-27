@@ -19,6 +19,16 @@ const SCRATCH_NOTE_PATH = 'Materials/01 Sample commands/Scratch note.md';
 
 const DEFAULT_TEXT_SETTING = 'defaultText';
 
+/** Copies the supplied keyed note so the duplicate repair can be observed. */
+export async function copyKeyedNote(app: App): Promise<void> {
+  const source = app.vault.getFileByPath('Materials/03 Key conflicts/Keyed note.md');
+  if (!source) {
+    throw new Error('The keyed example note is missing.');
+  }
+  const copy = await app.vault.copy(source, `Materials/03 Key conflicts/Copy ${Date.now().toString()}.md`);
+  await app.workspace.getLeaf(false).openFile(copy);
+}
+
 /**
  * Runs the plugin's `Sample` command, which shows a notice.
  *

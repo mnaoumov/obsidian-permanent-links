@@ -18,10 +18,18 @@ interface KeyEntry {
 interface KeyServiceConstructorParams {
   readonly fileExists: (path: string) => boolean;
   readonly getNotePaths: () => readonly string[];
+  readonly notice: (message: string) => void;
   readonly readNoteKeys: (path: string) => unknown;
+  readonly readNoteReceipt: (path: string) => unknown;
   readonly readStore: () => Promise<unknown>;
+  readonly resolveKeyEdit: (path: string, previous: readonly string[], next: readonly string[]) => Promise<'keep' | 'redirect' | 'revert'>;
   readonly writeNoteKeys: (path: string, keys: readonly string[]) => Promise<void>;
   readonly writeStore: (entries: readonly KeyEntry[]) => Promise<void>;
+}
+
+interface NoteWrite {
+  readonly after: string;
+  readonly before: string;
 }
 
 /**
@@ -29,6 +37,8 @@ Vault-wide identity and serialized changes; frontmatter is authoritative for not
 */
 export class KeyService {
   private readonly entries = new Map<string, KeyEntry>();
+  private isLoaded = false;
+  private readonly noteWrites = new Map<string, NoteWrite>();
   private readonly params: KeyServiceConstructorParams;
   private pending: Promise<void> = noopAsync();
   private savedSnapshot?: string;
@@ -109,6 +119,7 @@ export class KeyService {
     }
     this.reviveEntries('');
     await this.reconcile();
+    this.isLoaded = true;
   }
 
   public lookup(key: string): KeyEntry | undefined {
@@ -132,21 +143,22 @@ export class KeyService {
   public reconcile(notePaths?: readonly string[]): Promise<void> {
     return this.enqueue(async () => {
       const paths = notePaths ?? this.params.getNotePaths();
-      const noteKeys = new Map(paths.map((path) => [path, this.parseNoteKeys(this.params.readNoteKeys(path))]));
-      // Keep the mapped owner when duplicates appear. Conflict repair belongs to the conflict UI.
-      for (const [identity, entry] of this.entries) {
-        const keys = noteKeys.get(entry.path);
-        if (keys?.every((key) => keyIdentity(key) !== identity)) {
-          this.entries.delete(identity);
+      for (const path of paths) {
+        if (!this.params.fileExists(path)) {
+          continue;
         }
-      }
-      for (const [path, keys] of noteKeys) {
+        const keys = await this.reconcileNote(path);
+        if (!keys) {
+          continue;
+        }
+        for (const [identity, entry] of this.entries) {
+          if (entry.path === path) {
+            this.entries.delete(identity);
+          }
+        }
         for (const key of keys) {
           const identity = keyIdentity(key);
-          const existing = this.entries.get(identity);
-          if (!existing || existing.path === path || !this.params.fileExists(existing.path)) {
-            this.entries.set(identity, { key, path });
-          }
+          this.entries.set(identity, { key, path });
         }
       }
       await this.save();
@@ -214,6 +226,22 @@ export class KeyService {
     await this.save();
   }
 
+  private async chooseNoteKeys(path: string, previous: readonly string[], keys: string[], isAccepted: boolean, raw: unknown): Promise<string[] | undefined> {
+    const removed = previous.filter((key) => keys.every((next) => keyIdentity(next) !== keyIdentity(key)));
+    if (!this.isLoaded || removed.length === 0 || isAccepted) {
+      return keys;
+    }
+    const choice = await this.params.resolveKeyEdit(path, previous, keys);
+    // The user may edit, rename or delete the note while the modal is open.
+    if (!this.params.fileExists(path) || JSON.stringify(this.params.readNoteKeys(path)) !== JSON.stringify(raw)) {
+      return undefined;
+    }
+    if (choice === 'revert') {
+      return [...previous];
+    }
+    return choice === 'redirect' ? [...keys, ...removed] : keys;
+  }
+
   private enqueue<T>(action: () => Promise<T>): Promise<T> {
     const result = this.pending.then(action);
     this.pending = result.then(noop).catch(noop);
@@ -232,6 +260,53 @@ export class KeyService {
       throw new Error('The key property must be a list of strings.');
     }
     return value.map((key) => normalizeKey(key));
+  }
+
+  private async reconcileNote(path: string): Promise<string[] | undefined> {
+    const raw = this.params.readNoteKeys(path);
+    const snapshot = JSON.stringify([raw]);
+    const writing = this.noteWrites.get(path);
+    if (writing && (snapshot === writing.after || (writing.after === '[[]]' && raw === undefined))) {
+      this.noteWrites.delete(path);
+      return this.parseNoteKeys(raw);
+    }
+    if (snapshot === writing?.before) {
+      return undefined;
+    }
+    this.noteWrites.delete(path);
+    const previous = this.getKeys(path);
+    let keys: string[];
+    try {
+      keys = this.parseNoteKeys(raw);
+    } catch (error) {
+      if (!this.isLoaded || previous.length === 0) {
+        throw error;
+      }
+      await this.writeNote(path, previous);
+      this.params.notice(`Invalid permanent keys in ${path}. The previous keys were restored. ${String(error)}`);
+      return previous;
+    }
+    const isAccepted = JSON.stringify(keys) === JSON.stringify(this.params.readNoteReceipt(path));
+    const chosen = await this.chooseNoteKeys(path, previous, keys, isAccepted, raw);
+    if (!chosen) {
+      return undefined;
+    }
+    const unique = new Map<string, string>();
+    for (const key of chosen) {
+      const identity = keyIdentity(key);
+      const owner = this.entries.get(identity);
+      if (owner && owner.path !== path && this.params.fileExists(owner.path)) {
+        this.params.notice(`Removed duplicate key “${key}” from ${path}. It belongs to ${owner.path}.`);
+      } else {
+        unique.set(identity, key);
+      }
+    }
+    const result = [...unique.values()];
+    // Do not add coordination metadata to an untouched, unkeyed note.
+    if ((raw !== undefined && JSON.stringify(result) !== JSON.stringify(raw)) || (!isAccepted && (result.length > 0 || this.params.readNoteReceipt(path) !== undefined))) {
+      await this.writeNote(path, result);
+    }
+    return result;
   }
 
   private requireFile(path: string): void {
@@ -259,8 +334,12 @@ export class KeyService {
   }
 
   private async writeNote(path: string, keys: readonly string[]): Promise<void> {
-    if (path.endsWith('.md')) {
-      await this.params.writeNoteKeys(path, keys);
+    if (!path.endsWith('.md')) {
+      return;
     }
+
+    const before = JSON.stringify([this.params.readNoteKeys(path)]);
+    await this.params.writeNoteKeys(path, keys);
+    this.noteWrites.set(path, { after: JSON.stringify([keys]), before });
   }
 }

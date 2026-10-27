@@ -24,6 +24,7 @@ import {
 import type { PermanentLinksApi } from '../api.d.ts';
 import type { KeyService } from './keys/key-service.ts';
 
+import { resolveKeyEdit } from './keys/key-edit-modal.ts';
 import { PluginSettingsComponent } from './plugin-settings-component.ts';
 import { PluginSettingsTab } from './plugin-settings-tab.ts';
 import { Plugin } from './plugin.ts';
@@ -31,6 +32,7 @@ import { Plugin } from './plugin.ts';
 vi.mock('@mnaoumov/obsidian-lib/modals/prompt', () => ({ prompt: vi.fn() }));
 vi.mock('@mnaoumov/obsidian-lib/modals/confirm', () => ({ confirm: vi.fn() }));
 vi.mock('@mnaoumov/obsidian-lib/modals/select-item', () => ({ selectItem: vi.fn() }));
+vi.mock('./keys/key-edit-modal.ts', () => ({ resolveKeyEdit: vi.fn() }));
 
 interface PluginInternals {
   readonly copyLink: (file: TFile) => Promise<void>;
@@ -69,6 +71,27 @@ async function createFixture(): Promise<PluginFixture> {
 
 describe('plugin key commands', () => {
   afterEach(() => vi.restoreAllMocks());
+
+  it('wires duplicate notices, edit decisions and atomic acceptance receipts', async () => {
+    const { api, app, file, internals, plugin } = await createFixture();
+    const notice = vi.spyOn(PluginNoticeComponent.prototype, 'showNotice');
+    await api.addKey(file, 'A');
+    await app.vault.create('copy.md', '---\nkeys: [A, own]\n---\nCopy body');
+    await vi.waitFor(() => {
+      expect(notice).toHaveBeenCalledWith(expect.stringContaining('copy.md'));
+    });
+    vi.mocked(resolveKeyEdit).mockResolvedValueOnce('redirect');
+    await app.fileManager.processFrontMatter(file, (frontmatter) => {
+      Object.defineProperty(frontmatter, 'keys', { configurable: true, enumerable: true, value: ['B'], writable: true });
+    });
+    await vi.waitFor(() => {
+      expect(api.getKeys(file)).toEqual(['B', 'A']);
+    });
+    expect(resolveKeyEdit).toHaveBeenCalledWith(app, 'note.md', ['A'], ['B']);
+    await internals.getKeyService().reconcile(['note.md']);
+    expect(resolveKeyEdit).toHaveBeenCalledTimes(1);
+    plugin.unload();
+  });
 
   it('registers a resolver and opens notes and attachments using their current paths', async () => {
     const registration = vi.spyOn(Plugin.prototype, 'registerObsidianProtocolHandler');

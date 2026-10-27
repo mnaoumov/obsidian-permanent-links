@@ -21,6 +21,7 @@ import { normalizePath } from 'obsidian';
 import type { PermanentLinksApi } from '../api.d.ts';
 
 import { KeyCommandHandler } from './keys/key-command-handler.ts';
+import { resolveKeyEdit } from './keys/key-edit-modal.ts';
 import { KeyService } from './keys/key-service.ts';
 import { LinkResolver } from './keys/link-resolver.ts';
 import { TombstoneCommandHandler } from './keys/tombstone-command-handler.ts';
@@ -103,11 +104,16 @@ export class Plugin extends PluginBase {
     const service = new KeyService({
       fileExists: (path): boolean => this.app.vault.getFileByPath(path) !== null,
       getNotePaths: (): string[] => this.app.vault.getMarkdownFiles().map((file) => file.path),
+      notice: (message): void => {
+        this.pluginNoticeComponent.showNotice(message);
+      },
       readNoteKeys: (path): unknown => this.app.metadataCache.getFileCache(this.requireFile(path))?.frontmatter?.[propertyName] as unknown,
+      readNoteReceipt: (path): unknown => this.app.metadataCache.getFileCache(this.requireFile(path))?.frontmatter?.[`${propertyName}-accepted`] as unknown,
       readStore: async (): Promise<unknown> =>
         await this.app.vault.adapter.exists(storePath)
           ? JSON.parse(await this.app.vault.adapter.read(storePath)) as unknown
           : null,
+      resolveKeyEdit: (path, previous, next): Promise<'keep' | 'redirect' | 'revert'> => resolveKeyEdit(this.app, path, previous, next),
       writeNoteKeys: async (path, keys): Promise<void> => {
         await this.app.fileManager.processFrontMatter(this.requireFile(path), (frontmatter) => {
           if (!checkIsPlainObject(frontmatter)) {
@@ -118,6 +124,7 @@ export class Plugin extends PluginBase {
           } else {
             Reflect.deleteProperty(frontmatter, propertyName);
           }
+          Object.defineProperty(frontmatter, `${propertyName}-accepted`, { configurable: true, enumerable: true, value: [...keys], writable: true });
         });
       },
       writeStore: (entries): Promise<void> => this.app.vault.adapter.write(storePath, JSON.stringify(entries, null, JSON_INDENT))

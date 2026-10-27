@@ -1,4 +1,7 @@
-import { noopAsync } from '@mnaoumov/typescript-lib/function';
+import {
+  noop,
+  noopAsync
+} from '@mnaoumov/typescript-lib/function';
 import {
   describe,
   expect,
@@ -18,8 +21,11 @@ function createService(raw: unknown = null): ServiceFixture {
   const service = new KeyService({
     fileExists: (path): boolean => files.has(path),
     getNotePaths: (): string[] => [...files.keys()].filter((path) => path.endsWith('.md')),
+    notice: noop,
     readNoteKeys: (path): unknown => files.get(path),
+    readNoteReceipt: (path): unknown => files.get(path),
     readStore: (): Promise<unknown> => Promise.resolve(raw),
+    resolveKeyEdit: (): Promise<'revert'> => Promise.resolve('revert'),
     writeNoteKeys,
     writeStore
   });
