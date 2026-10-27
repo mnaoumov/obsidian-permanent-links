@@ -29,6 +29,20 @@
       "manualCheck": "The check reads the range declared by the @wdio/utils that obsidian-integration-testing reaches, nested under it when the project also has a newer wdio, which is what forces the override. When it moves to ^8 or later the override and this entry can go. Before lifting it, re-run the deepmergeCustom probe: @wdio/config passes a `mergeArrays` handler that reads `meta.key`, and that is the API 8.0.0 renamed.",
       "section": "overrides",
       "why": "Clears GHSA-ggr8-5vv4-36mx (stack exhaustion merging recursive object graphs), patched in 8.0.0. @wdio/utils declares ^7.0.3 up to 9.30, and obsidian-integration-testing pins webdriverio 9.27.0, so no direct bump reaches it and `npm audit fix --force` only offers a downgrade of obsidian-integration-testing to 1.1.2. The forced major is safe for these consumers: 8.0.0 breaks by renaming the mergeInfo system and aligning the customization shorthand, and both surfaces were measured to behave identically on 7.1.6 and 8.0.1 in the exact shapes the tree uses -- @wdio/config's `deepmergeCustom` with a `mergeArrays` handler reading `meta.key` and returning `utils.actions.defaultMerge`, and webdriver's `deepmergeCustom({ mergeArrays: false })`. A scan of the whole installed tree found no other binding than `deepmerge` and `deepmergeCustom`."
+    },
+    "katex": {
+      "section": "overrides",
+      "why": "Clears GHSA-238p-pmpm-9mq7, patched in 0.18.2. micromark-extension-math still requires KaTeX ^0.16.0, so upgrading the direct Markdown lint tools cannot reach a patched release. Its renderToString integration is verified with inline and display math through micromark.",
+      "check": "node -e \"process.stdout.write(require('./node_modules/micromark-extension-math/package.json').dependencies.katex)\"",
+      "expect": "^0.16.0",
+      "manualCheck": "Remove the override and matching resolution once micromark-extension-math admits a patched KaTeX; rerun npm audit and the math rendering probe."
+    },
+    "moment": {
+      "section": "overrides",
+      "why": "Clears GHSA-4p3w-j4w9-5jqw, patched in 2.31.0. eslint-plugin-obsidianmd pins Obsidian 1.12.3, which pins Moment 2.29.4. A global override keeps the existing Obsidian type dependency while replacing its vulnerable Moment with the patched compatible 2.x release.",
+      "check": "node -e \"process.stdout.write(require('./node_modules/eslint-plugin-obsidianmd/node_modules/obsidian/package.json').dependencies.moment)\"",
+      "expect": "2.29.4",
+      "manualCheck": "When the linter updates its Obsidian dependency, inspect its Moment range and remove this override and matching resolution if the unmodified tree passes npm audit."
     }
   }
 }
