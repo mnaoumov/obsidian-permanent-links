@@ -36,3 +36,15 @@ A manual edit to `keys` leaves the receipt unchanged, so removing an existing id
 The receipt records acceptance, rather than providing access control. Editing both properties to the same value explicitly declares the change accepted. A sync snapshot arriving before anyone has accepted it still requires a decision.
 
 At startup, existing notes are imported without a manual-edit dialog and keyed notes receive a receipt when needed. Changes made while the plugin was disabled are therefore accepted on startup. Untouched notes with no keys receive no new property. After an accepted removal of every key, the empty receipt remains to carry that decision to other devices.
+
+## Merging notes
+
+When core `Note Composer` merges a keyed note into another note and removes the source, `Permanent Links` offers **Move keys**. This preserves all the source's external links as aliases of the target. The target's first key remains its primary key. An unkeyed source needs no offer.
+
+1. Create two notes, give each a key with **Set key**, and add another alias to the source if desired.
+2. Open the source and run **Note composer: Merge current file with another file**, then select the target.
+3. Choose **Move keys** in **Preserve permanent links?** and inspect the target's `keys` list. Both original links now open the target.
+
+**Keep deleted keys**, Escape, or closing the offer leaves the source's deleted-key records intact. A failed merge never offers a transfer. If the source returns, the target disappears, or the source keys change while the offer is open, the old answer is discarded. Disabling core `Note Composer` or unloading `Permanent Links` also invalidates an outstanding answer. Re-enabling core `Note Composer` restores merge detection.
+
+Other merging plugins can call `moveKeys(fromFile, toFile)` through API version `1.1.0`. Await that call before deleting a live source. The API moves keys and leaves content merging to its caller.

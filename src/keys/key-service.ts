@@ -307,6 +307,10 @@ export class KeyService {
     return result;
   }
 
+  private isOwnerReserved(entry: KeyEntry): boolean {
+    return this.isLoaded || this.params.fileExists(entry.path);
+  }
+
   private matchesPath(candidate: string, path: string): boolean {
     return path === '' || candidate === path || candidate.startsWith(`${path}/`);
   }
@@ -354,7 +358,7 @@ export class KeyService {
     for (const key of chosen) {
       const identity = keyIdentity(key);
       const owner = this.entries.get(identity);
-      if (owner && owner.path !== path && this.params.fileExists(owner.path)) {
+      if (owner && owner.path !== path && this.isOwnerReserved(owner)) {
         this.params.notice(`Removed duplicate key “${key}” from ${path}. It belongs to ${owner.path}.`);
       } else {
         unique.set(identity, key);

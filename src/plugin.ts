@@ -25,6 +25,7 @@ import { resolveKeyEdit } from './keys/key-edit-modal.ts';
 import { KeyForwarder } from './keys/key-forwarder.ts';
 import { KeyService } from './keys/key-service.ts';
 import { LinkResolver } from './keys/link-resolver.ts';
+import { NoteComposerComponent } from './keys/note-composer-component.ts';
 import { getStartupNotePaths } from './keys/startup-note-paths.ts';
 import { TombstoneCommandHandler } from './keys/tombstone-command-handler.ts';
 import {
@@ -177,6 +178,7 @@ export class Plugin extends PluginBase {
     }));
     await loading;
     this.keyService = service;
+    this.addChild(new NoteComposerComponent(this.app, service));
     await this.commandHandlerComponent.registerCommandHandlers(() => [
       new KeyCommandHandler({ execute: (file): Promise<void> => this.copyLink(file), icon: 'link', id: 'copy-permanent-link', name: 'Copy permanent link' }),
       new KeyCommandHandler({ execute: (file): Promise<void> => this.setKey(file), icon: 'key', id: 'set-key', name: 'Set key' }),
