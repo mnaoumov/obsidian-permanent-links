@@ -70,6 +70,20 @@ async function createFixture(): Promise<PluginFixture> {
 }
 
 describe('plugin key commands', () => {
+  it('publishes the merge API and preserves transferred keys through metadata events', async () => {
+    const { api, app, file, internals, plugin } = await createFixture();
+    const target = await app.vault.create('target.md', 'Target body');
+    await api.addKey(file, 'source');
+    await api.addKey(target, 'primary');
+    await api.moveKeys(file, target);
+    await internals.getKeyService().reconcile();
+    expect(api.getKeys(file)).toEqual([]);
+    expect(api.getKeys(target)).toEqual(['primary', 'source']);
+    expect(api.resolve('source')).toBe(target);
+    expect(ensureNonNullable(internals.getPluginApis()[0]).apiVersion).toBe('1.1.0');
+    plugin.unload();
+  });
+
   afterEach(() => vi.restoreAllMocks());
 
   it('wires duplicate notices, edit decisions and atomic acceptance receipts', async () => {

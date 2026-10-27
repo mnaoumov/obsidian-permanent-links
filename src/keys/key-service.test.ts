@@ -33,6 +33,107 @@ function createService(raw: unknown = null): ServiceFixture {
 }
 
 describe('KeyService', () => {
+  it('serializes competing transfers without losing destination aliases', async () => {
+    const { files, service } = createService();
+    files.set('target.md', undefined);
+    await service.load();
+    await service.addKey('note.md', 'note');
+    await service.addKey('report.pdf', 'attachment');
+    await Promise.all([service.moveKeys('note.md', 'target.md'), service.moveKeys('report.pdf', 'target.md')]);
+    expect(service.getKeys('target.md')).toEqual(['note', 'attachment']);
+    expect(files.get('target.md')).toEqual(['note', 'attachment']);
+    expect(service.getKeys('note.md')).toEqual([]);
+    expect(service.getKeys('report.pdf')).toEqual([]);
+  });
+
+  it('moves every alias after the target primary key and survives reconciliation and restart', async () => {
+    const { files, service, writeStore } = createService();
+    files.set('target.md', undefined);
+    await service.load();
+    await service.addKey('note.md', 'source');
+    await service.addKey('note.md', 'alias');
+    await service.addKey('target.md', 'primary');
+    await service.moveKeys('note.md', 'target.md');
+    expect(files.get('note.md')).toEqual([]);
+    expect(files.get('target.md')).toEqual(['primary', 'source', 'alias']);
+    await service.reconcile();
+    expect(service.getKeys('note.md')).toEqual([]);
+    expect(service.resolve('alias')?.path).toBe('target.md');
+    const restarted = createService(writeStore.mock.lastCall?.[0]);
+    restarted.files.set('target.md', ['primary', 'source', 'alias']);
+    await restarted.service.load();
+    expect(restarted.service.getKeys('target.md')).toEqual(['primary', 'source', 'alias']);
+  });
+
+  it('moves deleted source keys and attachment keys without requiring source frontmatter', async () => {
+    const { files, service } = createService();
+    await service.load();
+    await service.addKey('note.md', 'deleted');
+    files.delete('note.md');
+    await service.deletePath('note.md');
+    await service.moveKeys('note.md', 'report.pdf');
+    expect(service.lookup('deleted')).toEqual({ key: 'deleted', path: 'report.pdf' });
+    files.set('target.md', undefined);
+    await service.moveKeys('report.pdf', 'target.md');
+    expect(files.get('target.md')).toEqual(['deleted']);
+    expect(service.getKeys('report.pdf')).toEqual([]);
+  });
+
+  it('does nothing for a self move or unkeyed source and rejects a missing target', async () => {
+    const { service, writeNoteKeys, writeStore } = createService();
+    await service.load();
+    await service.addKey('note.md', 'source');
+    writeNoteKeys.mockClear();
+    writeStore.mockClear();
+    await service.moveKeys('note.md', 'note.md');
+    await service.moveKeys('report.pdf', 'note.md');
+    expect(service.getKeys('note.md')).toEqual(['source']);
+    expect(writeNoteKeys).not.toHaveBeenCalled();
+    expect(writeStore).not.toHaveBeenCalled();
+    await expect(service.moveKeys('note.md', 'missing.md')).rejects.toThrow('File no longer exists');
+    expect(service.resolve('source')?.path).toBe('note.md');
+  });
+
+  it('keeps ownership when a destination write fails and can retry', async () => {
+    const { files, service, writeNoteKeys } = createService();
+    files.set('target.md', undefined);
+    await service.load();
+    await service.addKey('note.md', 'source');
+    writeNoteKeys.mockRejectedValueOnce(new Error('write failed'));
+    await expect(service.moveKeys('note.md', 'target.md')).rejects.toThrow('write failed');
+    expect(service.resolve('source')?.path).toBe('note.md');
+    await service.moveKeys('note.md', 'target.md');
+    expect(service.resolve('source')?.path).toBe('target.md');
+  });
+
+  it('restores destination keys if clearing a live source fails', async () => {
+    const { files, service, writeNoteKeys } = createService();
+    files.set('target.md', undefined);
+    await service.load();
+    await service.addKey('note.md', 'source');
+    await service.addKey('target.md', 'primary');
+    writeNoteKeys.mockImplementationOnce((path, keys) => {
+      files.set(path, [...keys]);
+      return noopAsync();
+    }).mockRejectedValueOnce(new Error('source write failed'));
+    await expect(service.moveKeys('note.md', 'target.md')).rejects.toThrow('source write failed');
+    expect(files.get('target.md')).toEqual(['primary']);
+    expect(files.get('note.md')).toEqual(['source']);
+    expect(service.resolve('source')?.path).toBe('note.md');
+    await service.moveKeys('note.md', 'target.md');
+    expect(service.resolve('source')?.path).toBe('target.md');
+  });
+
+  it('retries persistence after a failed store write even though ownership already moved', async () => {
+    const { service, writeStore } = createService();
+    await service.load();
+    await service.addKey('note.md', 'source');
+    writeStore.mockRejectedValueOnce(new Error('disk full'));
+    await expect(service.moveKeys('note.md', 'report.pdf')).rejects.toThrow('disk full');
+    await service.moveKeys('note.md', 'report.pdf');
+    expect(writeStore).toHaveBeenLastCalledWith([{ key: 'source', path: 'report.pdf' }]);
+  });
+
   it('retries a failed attachment store write before returning an existing key', async () => {
     const { service, writeStore } = createService();
     await service.load();

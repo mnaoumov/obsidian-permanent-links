@@ -127,6 +127,40 @@ export class KeyService {
     return entry ? { ...entry } : undefined;
   }
 
+  public moveKeys(fromPath: string, toPath: string): Promise<void> {
+    return this.enqueue(async () => {
+      this.requireFile(toPath);
+      if (fromPath === toPath) {
+        await this.save();
+        return;
+      }
+      const keys = this.getKeys(fromPath);
+      if (keys.length === 0) {
+        await this.save();
+        return;
+      }
+      const targetKeys = this.getKeys(toPath);
+      await this.writeNote(toPath, [...targetKeys, ...keys]);
+      try {
+        if (this.params.fileExists(fromPath)) {
+          await this.writeNote(fromPath, []);
+        }
+      } catch (error) {
+        // Ownership stays with the source unless both frontmatter writes succeed.
+        await this.writeNote(toPath, targetKeys);
+        throw error;
+      }
+      // Reinsert in primary-key order so a reload preserves the destination's primary key.
+      for (const key of [...targetKeys, ...keys]) {
+        this.entries.delete(keyIdentity(key));
+      }
+      for (const key of [...targetKeys, ...keys]) {
+        this.entries.set(keyIdentity(key), { key, path: toPath });
+      }
+      await this.save();
+    });
+  }
+
   public purgeTombstones(keys: readonly string[]): Promise<void> {
     return this.enqueue(async () => {
       for (const key of keys) {

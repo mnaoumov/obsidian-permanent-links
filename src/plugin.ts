@@ -39,12 +39,13 @@ export class Plugin extends PluginBase {
       addKey: (file, key) => this.getKeyService().addKey(file.path, key),
       assignKey: (file) => this.getKeyService().assignKey(file.path),
       getKeys: (file) => this.getKeyService().getKeys(file.path),
+      moveKeys: (fromFile, toFile) => this.getKeyService().moveKeys(fromFile.path, toFile.path),
       resolve: (key) => {
         const entry = this.getKeyService().resolve(key);
         return entry ? this.app.vault.getFileByPath(entry.path) : null;
       }
     };
-    return [{ api, apiVersion: '1.0.0' }];
+    return [{ api, apiVersion: '1.1.0' }];
   }
 
   protected override async onloadImpl(): Promise<void> {
