@@ -10,6 +10,7 @@ import {
 } from './key.ts';
 
 interface KeyEntry {
+  readonly deletedAt?: string;
   readonly key: string;
   readonly path: string;
 }
@@ -57,8 +58,24 @@ export class KeyService {
     });
   }
 
+  public deletePath(path: string): Promise<void> {
+    return this.enqueue(async () => {
+      const deletedAt = new Date().toISOString();
+      for (const [identity, entry] of this.entries) {
+        if (this.matchesPath(entry.path, path) && !entry.deletedAt && !this.params.fileExists(entry.path)) {
+          this.entries.set(identity, { ...entry, deletedAt });
+        }
+      }
+      await this.save();
+    });
+  }
+
   public getKeys(path: string): string[] {
     return [...this.entries.values()].filter((entry) => entry.path === path).map((entry) => entry.key);
+  }
+
+  public listTombstones(): KeyEntry[] {
+    return [...this.entries.values()].filter((entry) => entry.deletedAt && !this.params.fileExists(entry.path)).map((entry) => ({ ...entry }));
   }
 
   public async load(): Promise<void> {
@@ -80,10 +97,36 @@ export class KeyService {
         if (this.entries.has(identity)) {
           throw new Error(`Duplicate key in keys.json: ${key}`);
         }
-        this.entries.set(identity, { key, path: entry.path });
+        const parsed: KeyEntry = { key, path: entry.path };
+        if ('deletedAt' in entry) {
+          if (typeof entry.deletedAt !== 'string' || !Number.isFinite(Date.parse(entry.deletedAt))) {
+            throw new TypeError('Invalid keys.json deletion time.');
+          }
+          Object.assign(parsed, { deletedAt: entry.deletedAt });
+        }
+        this.entries.set(identity, parsed);
       }
     }
+    this.reviveEntries('');
     await this.reconcile();
+  }
+
+  public lookup(key: string): KeyEntry | undefined {
+    const entry = this.entries.get(keyIdentity(key));
+    return entry ? { ...entry } : undefined;
+  }
+
+  public purgeTombstones(keys: readonly string[]): Promise<void> {
+    return this.enqueue(async () => {
+      for (const key of keys) {
+        const identity = keyIdentity(key);
+        const entry = this.entries.get(identity);
+        if (entry?.deletedAt && !this.params.fileExists(entry.path)) {
+          this.entries.delete(identity);
+        }
+      }
+      await this.save();
+    });
   }
 
   public reconcile(notePaths?: readonly string[]): Promise<void> {
@@ -128,7 +171,7 @@ export class KeyService {
     return this.enqueue(async () => {
       for (const [identity, entry] of this.entries) {
         if (entry.path === oldPath || entry.path.startsWith(`${oldPath}/`)) {
-          this.entries.set(identity, { key: entry.key, path: newPath + entry.path.slice(oldPath.length) });
+          this.entries.set(identity, { ...entry, path: newPath + entry.path.slice(oldPath.length) });
         }
       }
       await this.save();
@@ -137,7 +180,14 @@ export class KeyService {
 
   public resolve(key: string): KeyEntry | undefined {
     const entry = this.entries.get(keyIdentity(key));
-    return entry && this.params.fileExists(entry.path) ? { ...entry } : undefined;
+    return entry && !entry.deletedAt && this.params.fileExists(entry.path) ? { ...entry } : undefined;
+  }
+
+  public revivePath(path: string): Promise<void> {
+    return this.enqueue(async () => {
+      this.reviveEntries(path);
+      await this.save();
+    });
   }
 
   public validateKey(path: string, key: string): string {
@@ -170,6 +220,10 @@ export class KeyService {
     return result;
   }
 
+  private matchesPath(candidate: string, path: string): boolean {
+    return path === '' || candidate === path || candidate.startsWith(`${path}/`);
+  }
+
   private parseNoteKeys(value: unknown): string[] {
     if (value === undefined) {
       return [];
@@ -183,6 +237,14 @@ export class KeyService {
   private requireFile(path: string): void {
     if (!this.params.fileExists(path)) {
       throw new Error(`File no longer exists: ${path}`);
+    }
+  }
+
+  private reviveEntries(path: string): void {
+    for (const [identity, entry] of this.entries) {
+      if (this.matchesPath(entry.path, path) && this.params.fileExists(entry.path)) {
+        this.entries.set(identity, { key: entry.key, path: entry.path });
+      }
     }
   }
 

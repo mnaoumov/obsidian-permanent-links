@@ -1,5 +1,8 @@
 import type { PluginApiDeclaration } from '@mnaoumov/obsidian-lib/plugin/plugin-api';
-import type { TFile } from 'obsidian';
+import type {
+  ObsidianProtocolData,
+  TFile
+} from 'obsidian';
 
 import { OpenDemoVaultCommandHandler } from '@mnaoumov/obsidian-lib/command-handlers/open-demo-vault-command-handler';
 import { CallbackLayoutReadyComponent } from '@mnaoumov/obsidian-lib/components/layout-ready-component';
@@ -19,6 +22,8 @@ import type { PermanentLinksApi } from '../api.d.ts';
 
 import { KeyCommandHandler } from './keys/key-command-handler.ts';
 import { KeyService } from './keys/key-service.ts';
+import { LinkResolver } from './keys/link-resolver.ts';
+import { TombstoneCommandHandler } from './keys/tombstone-command-handler.ts';
 import { PluginSettingsComponent } from './plugin-settings-component.ts';
 import { PluginSettingsTab } from './plugin-settings-tab.ts';
 
@@ -26,6 +31,7 @@ const JSON_INDENT = 2;
 
 export class Plugin extends PluginBase {
   private keyService?: KeyService;
+  private keysReady?: Promise<void>;
 
   protected override getPluginApis(): PluginApiDeclaration[] {
     const api: PermanentLinksApi = {
@@ -54,7 +60,15 @@ export class Plugin extends PluginBase {
         pluginSettingsTab: new PluginSettingsTab({ plugin: this, pluginSettingsComponent: settings })
       })
     );
-    this.addChild(new CallbackLayoutReadyComponent(this.app, () => this.initializeKeys(settings)));
+    this.addChild(
+      new CallbackLayoutReadyComponent(this.app, () => {
+        this.keysReady = this.initializeKeys(settings);
+        return this.keysReady;
+      })
+    );
+    this.registerObsidianProtocolHandler('permanent-links', (params) => {
+      invokeAsyncSafely(() => this.openPermanentLink(params, settings));
+    });
     await this.commandHandlerComponent.registerCommandHandlers(() => [
       new OpenDemoVaultCommandHandler({
         app: this.app,
@@ -122,13 +136,77 @@ export class Plugin extends PluginBase {
         await service.rename(oldPath, file.path);
       });
     }));
+    this.registerEvent(this.app.vault.on('delete', (file) => {
+      invokeAsyncSafely(async () => {
+        await loading;
+        await service.deletePath(file.path);
+      });
+    }));
+    this.registerEvent(this.app.vault.on('create', (file) => {
+      invokeAsyncSafely(async () => {
+        await loading;
+        await service.revivePath(file.path);
+      });
+    }));
     await loading;
     this.keyService = service;
     await this.commandHandlerComponent.registerCommandHandlers(() => [
       new KeyCommandHandler({ execute: (file): Promise<void> => this.copyLink(file), icon: 'link', id: 'copy-permanent-link', name: 'Copy permanent link' }),
       new KeyCommandHandler({ execute: (file): Promise<void> => this.setKey(file), icon: 'key', id: 'set-key', name: 'Set key' }),
-      new KeyCommandHandler({ execute: (file): Promise<void> => this.removeKey(file), icon: 'unlink', id: 'remove-key', name: 'Remove key' })
+      new KeyCommandHandler({ execute: (file): Promise<void> => this.removeKey(file), icon: 'unlink', id: 'remove-key', name: 'Remove key' }),
+      new TombstoneCommandHandler(() => this.manageTombstones())
     ]);
+  }
+
+  private async manageTombstones(): Promise<void> {
+    const service = this.getKeyService();
+    const entries = service.listTombstones();
+    if (entries.length === 0) {
+      this.pluginNoticeComponent.showNotice('There are no deleted permanent keys.');
+      return;
+    }
+    const entry = await selectItem({
+      app: this.app,
+      items: entries,
+      itemTextFunction: (value): string => `${value.key} — ${value.path} — ${value.deletedAt ?? ''}`,
+      placeholder: 'Deleted keys: choose one to purge'
+    });
+    if (
+      entry && await confirm({
+        app: this.app,
+        message: `Permanently forget “${entry.key}” at ${entry.path}? Old links will report an unknown key, and this key can be assigned again.`,
+        okButtonText: 'Purge key',
+        title: 'Purge deleted key'
+      })
+    ) {
+      await service.purgeTombstones([entry.key]);
+    }
+  }
+
+  private async openPermanentLink(params: ObsidianProtocolData, settings: PluginSettingsComponent): Promise<void> {
+    if (!this.keysReady) {
+      this.addChild(new CallbackLayoutReadyComponent(this.app, () => this.openPermanentLink(params, settings)));
+      return;
+    }
+    await this.keysReady;
+    const service = this.getKeyService();
+    const resolver = new LinkResolver({
+      fileExists: (path): boolean => this.app.vault.getFileByPath(path) !== null,
+      getFilePaths: (): string[] => this.app.vault.getFiles().map((file) => file.path),
+      getVaultName: (): string => this.app.vault.getName(),
+      lookup: (key): ReturnType<KeyService['lookup']> => service.lookup(key),
+      missing: (path): Promise<void> => this.resolveMissingPath(path),
+      notice: (message): void => {
+        this.pluginNoticeComponent.showNotice(message);
+      },
+      open: async (path, query): Promise<void> => {
+        await service.revivePath(path);
+        const subpath = query['block'] ? `#^${query['block']}` : (query['heading'] ? `#${query['heading']}` : '');
+        await this.app.workspace.openLinkText(path + subpath, '', query['openmode'] === 'tab');
+      },
+      shouldUseFileName: (): boolean => settings.settings.shouldResolveUniqueFileNames
+    });
+    await resolver.resolve(params);
   }
 
   private async removeKey(file: TFile): Promise<void> {
@@ -166,6 +244,35 @@ export class Plugin extends PluginBase {
     return file;
   }
 
+  private async resolveMissingPath(path: string): Promise<void> {
+    const parts = path.split('/');
+    parts.pop();
+    let missingFolder = '';
+    for (const part of parts) {
+      const candidate = missingFolder ? `${missingFolder}/${part}` : part;
+      if (!this.app.vault.getFolderByPath(candidate)) {
+        missingFolder = candidate;
+        break;
+      }
+      missingFolder = candidate;
+    }
+    const hasMissingFolder = missingFolder !== '' && !this.app.vault.getFolderByPath(missingFolder);
+    const fileChoice = `I removed file ${path}`;
+    const folderChoice = `I removed folder ${missingFolder}`;
+    const choice = await selectItem({
+      app: this.app,
+      items: hasMissingFolder ? ['I don\'t know', folderChoice, fileChoice] : ['I don\'t know', fileChoice],
+      itemTextFunction: (value): string => value,
+      placeholder: `File not found. Last known location: ${path}${hasMissingFolder ? `. Folder ${missingFolder} is also missing.` : ''}`
+    });
+    if (!(choice === fileChoice || choice === folderChoice)) {
+      return;
+    }
+
+    await this.getKeyService().deletePath(choice === folderChoice ? missingFolder : path);
+    this.pluginNoticeComponent.showNotice('The deleted location has been recorded.');
+  }
+
   private async setKey(file: TFile): Promise<void> {
     const service = this.getKeyService();
     const key = await prompt({
@@ -186,3 +293,4 @@ export class Plugin extends PluginBase {
     }
   }
 }
+// Cspell:words openmode

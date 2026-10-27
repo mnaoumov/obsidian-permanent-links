@@ -37,9 +37,12 @@ interface PluginInternals {
   readonly getKeyService: () => KeyService;
   readonly getPluginApis: () => PluginApiDeclaration<PermanentLinksApi>[];
   readonly initializeKeys: (settings: PluginSettingsComponent) => Promise<void>;
+  readonly manageTombstones: () => Promise<void>;
+  readonly openPermanentLink: (params: Partial<import('obsidian').ObsidianProtocolData>, settings: PluginSettingsComponent) => Promise<void>;
   readonly pluginSettingsComponent: PluginSettingsComponent;
   readonly removeKey: (file: TFile) => Promise<void>;
   readonly requireFile: (path: string) => TFile;
+  readonly resolveMissingPath: (path: string) => Promise<void>;
   readonly setKey: (file: TFile) => Promise<void>;
 }
 
@@ -66,6 +69,119 @@ async function createFixture(): Promise<PluginFixture> {
 
 describe('plugin key commands', () => {
   afterEach(() => vi.restoreAllMocks());
+
+  it('registers a resolver and opens notes and attachments using their current paths', async () => {
+    const registration = vi.spyOn(Plugin.prototype, 'registerObsidianProtocolHandler');
+    const { api, app, file, internals, plugin } = await createFixture();
+    const open = vi.spyOn(app.workspace, 'openLinkText').mockResolvedValue(undefined);
+    vi.spyOn(app.vault, 'getName').mockReturnValue('Vault');
+    await api.addKey(file, 'note');
+    const handler = ensureNonNullable(registration.mock.calls.find(([action]) => action === 'permanent-links')?.[1]);
+    handler(castTo<import('obsidian').ObsidianProtocolData>({ action: 'permanent-links', key: 'note' }));
+    await vi.waitFor(() => {
+      expect(open).toHaveBeenCalledWith('note.md', '', false);
+    });
+    await internals.openPermanentLink({ heading: 'Title', key: 'note', openmode: 'tab' }, internals.pluginSettingsComponent);
+    expect(open).toHaveBeenLastCalledWith('note.md#Title', '', true);
+    await internals.openPermanentLink({ block: 'block', key: 'note' }, internals.pluginSettingsComponent);
+    expect(open).toHaveBeenLastCalledWith('note.md#^block', '', false);
+    const attachment = await app.vault.create('image.png', 'data');
+    await api.addKey(attachment, 'image');
+    await internals.openPermanentLink({ key: 'image' }, internals.pluginSettingsComponent);
+    expect(open).toHaveBeenLastCalledWith('image.png', '', false);
+    expect(internals.pluginSettingsComponent.settings.shouldResolveUniqueFileNames).toBe(false);
+    await internals.openPermanentLink({ key: 'unknown' }, internals.pluginSettingsComponent);
+    await internals.pluginSettingsComponent.editAndSave((settings) => {
+      settings.shouldResolveUniqueFileNames = true;
+    });
+    await internals.openPermanentLink({ key: 'unknown', vault: app.vault.getName() }, internals.pluginSettingsComponent);
+    expect(open).toHaveBeenLastCalledWith('image.png', '', false);
+    await internals.openPermanentLink({ key: 'image' }, internals.pluginSettingsComponent);
+    expect(open).toHaveBeenLastCalledWith('image.png', '', false);
+    const getFile = app.vault.getFileByPath.bind(app.vault);
+    vi.spyOn(app.vault, 'getFileByPath').mockImplementation((path) => path === 'image.png' ? null : getFile(path));
+    vi.mocked(selectItem).mockResolvedValueOnce(null);
+    await internals.openPermanentLink({ key: 'image' }, internals.pluginSettingsComponent);
+    expect(vi.mocked(selectItem).mock.lastCall?.[0].placeholder).toContain('image.png');
+    plugin.unload();
+  });
+
+  it('queues links received before layout readiness', async () => {
+    const mockApp = App.createConfigured__();
+    const app = mockApp.asOriginalType__();
+    await app.vault.adapter.mkdir(`${app.vault.configDir}/plugins`);
+    await app.vault.adapter.mkdir(`${app.vault.configDir}/plugins/permanent-links`);
+    const plugin = new Plugin(app, MANIFEST);
+    const internals = castTo<PluginInternals>(plugin);
+    const notice = vi.spyOn(PluginNoticeComponent.prototype, 'showNotice');
+    await plugin.onload();
+    await internals.openPermanentLink({ key: 'note' }, internals.pluginSettingsComponent);
+    expect(notice).not.toHaveBeenCalled();
+    mockApp.workspace.setLayoutReady__();
+    await vi.waitFor(() => {
+      expect(notice).toHaveBeenCalledWith('Unknown permanent key: note');
+    });
+    plugin.unload();
+  });
+
+  it('lists deleted keys, supports cancellation and confirmation, and runs the purge command', async () => {
+    const { api, app, commands, file, internals, plugin } = await createFixture();
+    const notice = vi.spyOn(PluginNoticeComponent.prototype, 'showNotice');
+    await internals.manageTombstones();
+    expect(notice).toHaveBeenCalledWith('There are no deleted permanent keys.');
+    await api.addKey(file, 'note');
+    await app.fileManager.trashFile(file);
+    await vi.waitFor(() => {
+      expect(internals.getKeyService().listTombstones()).toHaveLength(1);
+    });
+    const entry = ensureNonNullable(internals.getKeyService().lookup('note'));
+    vi.mocked(selectItem).mockResolvedValueOnce(null);
+    await internals.manageTombstones();
+    expect(internals.getKeyService().lookup('note')).toEqual(entry);
+    const selection = ensureNonNullable(vi.mocked(selectItem).mock.lastCall?.[0]);
+    expect(selection.itemTextFunction(entry)).toContain('note.md');
+    expect(selection.itemTextFunction({ key: 'key', path: 'path' })).toContain('path');
+    vi.mocked(selectItem).mockResolvedValueOnce(entry);
+    vi.mocked(confirm).mockResolvedValueOnce(false);
+    await internals.manageTombstones();
+    expect(internals.getKeyService().lookup('note')).toEqual(entry);
+    vi.mocked(selectItem).mockResolvedValueOnce(entry);
+    vi.mocked(confirm).mockResolvedValueOnce(true);
+    const command = ensureNonNullable(commands.mock.calls.find(([value]) => value.id === 'manage-deleted-keys')?.[0]);
+    command.checkCallback?.(false);
+    await vi.waitFor(() => {
+      expect(internals.getKeyService().lookup('note')).toBeUndefined();
+    });
+    plugin.unload();
+  });
+
+  it('revives restored files and records a confirmed missing folder without changing other entries', async () => {
+    const { api, app, internals, plugin } = await createFixture();
+    const attachment = await app.vault.create('restore.pdf', 'data');
+    await api.addKey(attachment, 'restore');
+    await app.fileManager.trashFile(attachment);
+    await vi.waitFor(() => {
+      expect(internals.getKeyService().listTombstones()).toHaveLength(1);
+    });
+    const restored = await app.vault.create('restore.pdf', 'data');
+    await vi.waitFor(() => {
+      expect(api.resolve('restore')).toBe(restored);
+    });
+    await app.vault.createFolder('exists');
+    vi.mocked(selectItem).mockResolvedValueOnce(null).mockResolvedValueOnce('I don\'t know');
+    await internals.resolveMissingPath('exists/gone.pdf');
+    await internals.resolveMissingPath('root.pdf');
+    expect(api.resolve('restore')).toBe(restored);
+    vi.mocked(selectItem).mockResolvedValueOnce('I removed folder exists/missing');
+    await internals.resolveMissingPath('exists/missing/deeper/gone.pdf');
+    const selection = ensureNonNullable(vi.mocked(selectItem).mock.lastCall?.[0]);
+    expect(selection.items).toContain('I removed folder exists/missing');
+    expect(selection.itemTextFunction('choice')).toBe('choice');
+    vi.mocked(selectItem).mockResolvedValueOnce('I removed file exists/gone.pdf');
+    await internals.resolveMissingPath('exists/gone.pdf');
+    expect(api.resolve('restore')).toBe(restored);
+    plugin.unload();
+  });
 
   it('registers file commands, stores note keys and publishes the read/assign API', async () => {
     const { api, app, commands, file, internals, plugin } = await createFixture();
@@ -249,7 +365,7 @@ describe('plugin key commands', () => {
         definition.render(new SettingEx(tab.containerEl), castTo<import('obsidian').SettingGroup>(null));
       }
     }
-    expect(bind.mock.calls.map(([params]) => params.propertyName)).toEqual(['keyPropertyName']);
+    expect(bind.mock.calls.map(([params]) => params.propertyName)).toEqual(['keyPropertyName', 'shouldResolveUniqueFileNames']);
     expect(definitions).toEqual(expect.arrayContaining([expect.objectContaining({ name: 'Key property name' })]));
     plugin.unload();
   });
@@ -268,3 +384,4 @@ interface PluginFixture {
 function appRead(file: TFile, plugin: Plugin): Promise<string> {
   return plugin.app.vault.read(file);
 }
+// Cspell:words openmode
