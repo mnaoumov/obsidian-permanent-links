@@ -4,6 +4,8 @@
 
 Give a note or an attachment a permanent key on request, and open it through a link that keeps working wherever the file moves.
 
+Copied notes lose duplicate keys, and manual key changes offer a safe default that preserves existing links: see [Key conflicts and manual edits](<./demo-vault/03 Key conflicts.md>).
+
 ## Demo vault
 
 **The documentation is a demo vault.** Every feature has a note that explains what it does and why you would want it, with a button you can press to watch it happen.

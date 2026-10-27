@@ -56,6 +56,7 @@
     "tslib",
     "typesafe",
     "unrs",
+    "unkeyed",
     "untracked",
     "unvalidated",
     "vitest",
