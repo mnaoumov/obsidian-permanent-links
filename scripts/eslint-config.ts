@@ -94,6 +94,7 @@ export const configs: Linter.Config[] = defineEslintConfigs({
     // File linted with nothing. Named unconditionally: a glob matching no emitted file costs nothing, and
     // `tsconfig.json` includes `./*.ts` whichever of them was written.
     context.rootConfigFiles.push(
+      'api.d.ts',
       'jest.config.ts',
       'vite.config.ts',
       'webpack.config.ts'

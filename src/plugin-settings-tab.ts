@@ -13,11 +13,11 @@ export class PluginSettingsTab extends PluginSettingsTabBase<PluginSettings> {
   protected override getSettingDefinitionItems(): SettingDefinitionItem[] {
     return [
       this.settingEx({
-        desc: 'Text setting description.',
-        name: 'Text setting name',
+        desc: 'Frontmatter list used for note keys. Changing this does not migrate existing properties. Reload the plugin after changing it.',
+        name: 'Key property name',
         render: (setting) => {
           setting.addText((text) => {
-            this.bind({ propertyName: 'textSetting', valueComponent: text });
+            this.bind({ propertyName: 'keyPropertyName', valueComponent: text });
           });
         }
       })

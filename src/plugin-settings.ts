@@ -1,3 +1,3 @@
 export class PluginSettings {
-  public textSetting = 'defaultText';
+  public keyPropertyName = 'keys';
 }
