@@ -38,12 +38,16 @@
   "resolutions": {
     "@puppeteer/browsers": "^3.2.1",
     "deepmerge-ts": "^8.0.2",
-    "typescript": "6.0.3"
+    "typescript": "6.0.3",
+    "katex": "^0.19.1",
+    "moment": "^2.31.0"
   },
   "overrides": {
     "@puppeteer/browsers": "^3.2.1",
     "deepmerge-ts": "^8.0.2",
-    "typescript": "$typescript"
+    "typescript": "$typescript",
+    "katex": "^0.19.1",
+    "moment": "^2.31.0"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.2.4",
