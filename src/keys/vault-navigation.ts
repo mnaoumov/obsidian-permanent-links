@@ -12,7 +12,7 @@ interface MobileFolderPicker {
 }
 
 interface NativeUriEmitter {
-  readonly emit: (name: string, event: NativeUriEvent, url: string) => boolean;
+  readonly emit: (name: string, $event: NativeUriEvent, url: string) => boolean;
 }
 
 interface NativeUriEvent {
