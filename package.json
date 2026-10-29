@@ -51,9 +51,9 @@
   },
   "devDependencies": {
     "@commitlint/cli": "^21.2.4",
-    "@mnaoumov/obsidian-dev-toolkit": "^6.0.0",
+    "@mnaoumov/obsidian-dev-toolkit": "^7.2.0",
     "@mnaoumov/obsidian-lib": "^6.1.0",
-    "@mnaoumov/typescript-dev-toolkit": "^4.0.0",
+    "@mnaoumov/typescript-dev-toolkit": "^5.1.0",
     "@mnaoumov/typescript-lib": "^1.6.2",
     "@obsidian-typings/obsidian-public-latest": "^6.52.0",
     "@tsconfig/strictest": "^2.0.8",

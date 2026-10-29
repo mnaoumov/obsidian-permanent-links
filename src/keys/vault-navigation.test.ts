@@ -33,8 +33,8 @@ it('reads desktop vault names from the registry and registers a selected existin
   expect(sendSync).toHaveBeenLastCalledWith('vault-open', String.raw`C:\New vault`, false);
   openVaultUri(app, 'obsidian://permanent-links?vault=Other&key=key');
   expect(emit).toHaveBeenCalledWith('open-url', expect.any(Object), expect.stringContaining('vault=Other'));
-  const event = castTo<Pick<Event, 'preventDefault'>>(emit.mock.calls[0]?.[1]);
-  event.preventDefault();
+  const $event = castTo<Pick<Event, 'preventDefault'>>(emit.mock.calls[0]?.[1]);
+  $event.preventDefault();
 });
 
 it('fails safely on unavailable or malformed desktop internals and handles folder cancellation', async () => {
