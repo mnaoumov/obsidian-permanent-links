@@ -47,7 +47,8 @@
     "deepmerge-ts": "^8.0.2",
     "typescript": "$typescript",
     "katex": "^0.19.1",
-    "moment": "^2.31.0"
+    "moment": "^2.31.0",
+    "re2js": "^2.9.1"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.2.4",
