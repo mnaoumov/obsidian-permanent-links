@@ -53,7 +53,7 @@ export function openVaultUri(app: App, url: string): void {
 
 export async function pickVaultFolder(app: App): Promise<DestinationVault | null> {
   if (app.isMobile) {
-    const picker: unknown = window.Capacitor.Plugins['Filesystem'];
+    const picker: unknown = window.Capacitor.Plugins.Filesystem;
     if (!checkMobileFolderPicker(picker)) {
       throw new Error('Folder selection is unavailable on this device. Register the destination in Obsidian first.');
     }

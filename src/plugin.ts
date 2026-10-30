@@ -4,6 +4,7 @@ import type {
   TFile
 } from 'obsidian';
 
+import { OpenBugReportCommandHandler } from '@mnaoumov/obsidian-lib/command-handlers/open-bug-report-command-handler';
 import { OpenDemoVaultCommandHandler } from '@mnaoumov/obsidian-lib/command-handlers/open-demo-vault-command-handler';
 import { CallbackLayoutReadyComponent } from '@mnaoumov/obsidian-lib/components/layout-ready-component';
 import { PluginSettingsTabComponent } from '@mnaoumov/obsidian-lib/components/plugin-settings-tab-component';
@@ -80,6 +81,11 @@ export class Plugin extends PluginBase {
       invokeAsyncSafely(() => this.openPermanentLink(params, settings));
     });
     await this.commandHandlerComponent.registerCommandHandlers(() => [
+      new OpenBugReportCommandHandler({
+        app: this.app,
+        gitHubRepo: 'mnaoumov/obsidian-permanent-links',
+        pluginId: this.manifest.id
+      }),
       new OpenDemoVaultCommandHandler({
         app: this.app,
         pluginId: this.manifest.id,
