@@ -329,7 +329,7 @@ describe('plugin key commands', () => {
 
   it('registers file commands, stores note keys and publishes the read/assign API', async () => {
     const { api, app, commands, file, internals, plugin } = await createFixture();
-    expect(commands.mock.calls.map(([command]) => command.id)).toEqual(expect.arrayContaining(['copy-permanent-link', 'set-key', 'remove-key']));
+    expect(commands.mock.calls.map(([command]) => command.id)).toEqual(expect.arrayContaining(['copy-permanent-link', 'set-key', 'remove-key', 'report-bug']));
     expect(api.resolve('unknown')).toBeNull();
     await api.addKey(file, 'Readable');
     expect(api.getKeys(file)).toEqual(['Readable']);
