@@ -6,6 +6,8 @@ Find them in Obsidian under **Settings → Community plugins → `Permanent Link
 
 ## General
 
+- `keyFormat`
+  - the shape of a key that **Copy permanent link** generates, shown as **Generated key format**. `short` (the default) is 12 random characters from `a-z0-9`; `guid` is a random GUID written without hyphens, 32 lowercase hexadecimal characters such as `3f2a9c0e8b1d4e6fa7c5b2d9e0f1a3b4`. It changes only keys generated from now on: existing keys keep working, and a key you type with **Set key** may take either shape whatever this says.
 - `keyPropertyName`
   - the frontmatter list a note keeps its keys in, shown as **Key property name**. Defaults to `keys`. The acceptance receipt beside it is named after it, `<keyPropertyName>-accepted`. Changing it needs a plugin reload, and does not move keys already stored under the old name.
 - `shouldResolveUniqueFileNames`

@@ -26,6 +26,12 @@ describe('keys', () => {
     expect(generateKey()).toMatch(/^[a-z0-9]{12}$/u);
   });
 
+  it('generates a lowercase GUID without hyphens that is a valid typed key', () => {
+    const key = generateKey('guid');
+    expect(key).toMatch(/^[0-9a-f]{32}$/u);
+    expect(normalizeKey(key)).toBe(key);
+  });
+
   it('rejects biased random bytes and fills the key from a later batch', () => {
     const random = vi.spyOn(window.crypto, 'getRandomValues');
     random.mockReturnValueOnce(new Uint8Array(12).fill(255));

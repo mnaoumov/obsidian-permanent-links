@@ -33,6 +33,25 @@ function createService(raw: unknown = null): ServiceFixture {
 }
 
 describe('KeyService', () => {
+  it('assigns keys from the configured generator and skips one already taken', async () => {
+    const generateKey = vi.fn<() => string>().mockReturnValueOnce('TAKEN').mockReturnValueOnce('0123456789abcdef0123456789abcdef');
+    const service = new KeyService({
+      fileExists: (): boolean => true,
+      generateKey,
+      getNotePaths: (): string[] => [],
+      notice: noop,
+      readNoteKeys: (): unknown => undefined,
+      readNoteReceipt: (): unknown => undefined,
+      readStore: (): Promise<unknown> => Promise.resolve([{ key: 'taken', path: 'report.pdf' }]),
+      resolveKeyEdit: (): Promise<'revert'> => Promise.resolve('revert'),
+      writeNoteKeys: noopAsync,
+      writeStore: noopAsync
+    });
+    await service.load();
+    expect(await service.assignKey('image.png')).toBe('0123456789abcdef0123456789abcdef');
+    expect(generateKey).toHaveBeenCalledTimes(2);
+  });
+
   it('forwards every missing identity in a subtree, including tombstones, and preserves other files', async () => {
     const { files, service, writeStore } = createService([
       { deletedAt: '2026-10-25T00:00:00.000Z', key: 'note', path: 'gone/note.md' },

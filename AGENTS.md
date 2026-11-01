@@ -43,7 +43,7 @@ Copy permanent link reuses the first key or generates one; Set key adds an alias
 
 ### What a key looks like
 
-- **Generated:** 12 random characters from `a-z0-9`, the same shape as a generated attachment name.
+- **Generated:** 12 random characters from `a-z0-9` by default, the same shape as a generated attachment name. The `keyFormat` setting switches to `guid`: `crypto.randomUUID()` without hyphens, 32 lowercase hex characters, a shape `KEY_PATTERN` already accepts. Requested in 2024-11 to match an existing hyphen-free-GUID id scheme; the default stays `short` because the link is shorter and either shape is unique per vault.
 - **Typed by the user**, like a readable block id: letters and digits of any script (`\p{L}`, `\p{M}`, `\p{N}`), `-` and `_`, 1 to 64 characters, normalized to NFC. Not ASCII-only. Rejected: spaces, `/`, `#`, `^`, `|`, `[`, `]`, and anything a URI or a wikilink would need to escape beyond percent-encoding.
 - **Unique per vault**, compared case-insensitively after NFC normalization, so `Charlie` and `charlie` cannot both exist. A link carries the vault name as well, so the same key in two vaults never opens the wrong file.
 - **An attachment's key** is generated independently of its filename, just like a note's. Ordinary names such as `report.pdf` and `Screenshot 2026-10-25.png` need no naming convention. A user who wants a filename as a readable key can use Set key explicitly.

@@ -18,6 +18,7 @@ interface KeyEntry {
 
 interface KeyServiceConstructorParams {
   readonly fileExists: (path: string) => boolean;
+  readonly generateKey?: () => string;
   readonly getNotePaths: () => Promise<readonly string[]> | readonly string[];
   readonly notice: (message: string) => void;
   readonly readNoteKeys: (path: string) => unknown;
@@ -62,7 +63,7 @@ export class KeyService {
       }
       let key: string;
       do {
-        key = generateKey();
+        key = (this.params.generateKey ?? generateKey)();
       } while (this.entries.has(keyIdentity(key)));
       await this.addKeyImpl(path, key);
       return key;
