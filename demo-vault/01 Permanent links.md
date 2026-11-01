@@ -6,7 +6,7 @@ A note keeps its keys in the `keys` frontmatter list, so the key travels with th
 
 ## Copy permanent link
 
-**`Permanent Links`: Copy permanent link** copies the link of the active file. A file with no key first gets a generated one: 12 random characters from `a-z0-9`. A file that already has keys reuses its first one, its primary key.
+**`Permanent Links`: Copy permanent link** copies the link of the active file. A file with no key first gets a generated one: 12 random characters from `a-z0-9`, or a GUID without hyphens if you choose that shape in [Settings](<./05 Settings.md>). A file that already has keys reuses its first one, its primary key.
 
 ```code-button
 ---

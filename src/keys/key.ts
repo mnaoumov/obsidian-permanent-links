@@ -3,7 +3,16 @@ const ALPHABET = 'abcdefghijklmnopqrstuvwxyz0123456789';
 const KEY_LENGTH = 12;
 const UNBIASED_BYTE_LIMIT = 252;
 
-export function generateKey(): string {
+/**
+ * The shape of a generated key. A typed key accepts either shape regardless of this setting.
+ */
+export type KeyFormat = 'guid' | 'short';
+
+export function generateKey(format: KeyFormat = 'short'): string {
+  if (format === 'guid') {
+    // eslint-disable-next-line n/no-unsupported-features/node-builtins -- Uses Web Crypto in Obsidian's renderer on desktop and mobile.
+    return window.crypto.randomUUID().replaceAll('-', '');
+  }
   let key = '';
   while (key.length < KEY_LENGTH) {
     // eslint-disable-next-line n/no-unsupported-features/node-builtins -- Uses Web Crypto in Obsidian's renderer on desktop and mobile.

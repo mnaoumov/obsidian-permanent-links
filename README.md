@@ -6,6 +6,8 @@ A path is an address, not an identity. When a note moves, is renamed or grows in
 
 `Permanent Links` gives a note or an attachment a permanent key, only when you ask for one, and copies a link that carries the key. The link keeps opening the file wherever it has moved since, and says so plainly when the file was deleted. A note carries its keys in a frontmatter property, readable by any tool, so nothing about the key is hidden in the plugin.
 
+Ids that survive a move are a long-standing request: people in the Obsidian community have asked for them since at least 2021.
+
 <!-- markdownlint-disable MD033 -->
 
 <a href="https://github.com/mnaoumov/obsidian-permanent-links/blob/HEAD/images/screenshots/screenshot-desktop-1.png"><img src="images/screenshots/screenshot-desktop-1.png" alt="A permanent link opens a note wherever it moved" width="600"></a>
@@ -43,7 +45,7 @@ A copy of the vault ships with every release. You can access it via any of the f
 
 ## What it does
 
-- **Copy permanent link** gives the active file a generated key if it has none and copies `obsidian://permanent-links?vault=<vault>&key=<key>`. The link opens the file wherever it is, at a heading or a block if you add one: see [Permanent links](<./demo-vault/01 Permanent links.md>).
+- **Copy permanent link** gives the active file a generated key if it has none (12 letters and digits, or a GUID without hyphens if you prefer that shape) and copies `obsidian://permanent-links?vault=<vault>&key=<key>`. The link opens the file wherever it is, at a heading or a block if you add one: see [Permanent links](<./demo-vault/01 Permanent links.md>).
 - **Set key** adds a readable key in any script, such as `plan-2026`, as an alias that keeps older links working; **Remove key** asks before removing one: see [Permanent links](<./demo-vault/01 Permanent links.md>).
 - **Attachments** get keys too, kept in the plugin's readable `keys.json` because an attachment has no frontmatter: see [Permanent links](<./demo-vault/01 Permanent links.md>).
 - **Moves, renames and deletions** are followed: a moved file's link opens it at its new path, a deleted file's link says when it was deleted and where it last was, and a restored file gets its keys back: see [Moved and deleted files](<./demo-vault/02 Moved and deleted files.md>).

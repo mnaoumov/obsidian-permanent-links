@@ -510,7 +510,7 @@ describe('plugin key commands', () => {
         definition.render(new SettingEx(tab.containerEl), castTo<import('obsidian').SettingGroup>(null));
       }
     }
-    expect(bind.mock.calls.map(([params]) => params.propertyName)).toEqual(['keyPropertyName', 'shouldResolveUniqueFileNames']);
+    expect(bind.mock.calls.map(([params]) => params.propertyName)).toEqual(['keyFormat', 'keyPropertyName', 'shouldResolveUniqueFileNames']);
     expect(definitions).toEqual(expect.arrayContaining([expect.objectContaining({ name: 'Key property name' })]));
     plugin.unload();
   });

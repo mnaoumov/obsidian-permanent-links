@@ -25,6 +25,7 @@ import { KeyCommandHandler } from './keys/key-command-handler.ts';
 import { resolveKeyEdit } from './keys/key-edit-modal.ts';
 import { KeyForwarder } from './keys/key-forwarder.ts';
 import { KeyService } from './keys/key-service.ts';
+import { generateKey } from './keys/key.ts';
 import { LinkResolver } from './keys/link-resolver.ts';
 import { NoteComposerComponent } from './keys/note-composer-component.ts';
 import { getStartupNotePaths } from './keys/startup-note-paths.ts';
@@ -130,6 +131,7 @@ export class Plugin extends PluginBase {
     const storePath = normalizePath(`${this.app.vault.configDir}/plugins/${this.manifest.id}/keys.json`);
     const service = new KeyService({
       fileExists: (path): boolean => this.app.vault.getFileByPath(path) !== null,
+      generateKey: (): string => generateKey(settings.settings.keyFormat),
       getNotePaths: (): Promise<string[]> => getStartupNotePaths(this.app, propertyName),
       notice: (message): void => {
         this.pluginNoticeComponent.showNotice(message);
