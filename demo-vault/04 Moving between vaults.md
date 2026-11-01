@@ -4,13 +4,13 @@ A permanent key keeps a link working when a file moves inside its vault. When a 
 
 ## Try a permanent link
 
-This button opens the [move example](<./Materials/Move example.md>) and runs Copy permanent link. Its key is already present in frontmatter, so you can move the note to a second vault with `Permanent Links` enabled and try the old link.
+This button opens the [move example](<./Materials/04 Moving between vaults/Move example.md>) and runs Copy permanent link. Its key is already present in frontmatter, so you can move the note to a second vault with `Permanent Links` enabled and try the old link.
 
 ```code-button
 ---
 caption: Copy the move example's permanent link
 ---
-await app.workspace.openLinkText('Materials/Move example.md', '', false);
+await app.workspace.openLinkText('Materials/04 Moving between vaults/Move example.md', '', false);
 app.commands.executeCommandById('permanent-links:copy-permanent-link');
 ```
 

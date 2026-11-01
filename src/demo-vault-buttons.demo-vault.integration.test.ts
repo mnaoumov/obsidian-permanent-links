@@ -9,4 +9,6 @@ import { registerDemoVaultButtonSuite } from '@mnaoumov/obsidian-dev-toolkit/dem
 // First time you open `demo-vault/` in Obsidian. See CONTRIBUTING.md.
 //
 // Isolation: `npx vitest run --project integration-tests:demo-vault`.
-registerDemoVaultButtonSuite();
+// `Set key`, `Remove key` and `List and purge deleted keys` open a modal for the reader to answer, so the suite
+// Dismisses whatever a button leaves open.
+registerDemoVaultButtonSuite({ shouldDismissModals: true });

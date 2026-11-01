@@ -10,6 +10,8 @@
 # Demo-vault button suite picks it up from.
 .obsidian/plugins/*
 
-# Written by the demo buttons in `01 Sample commands.md`; clicking through the walkthrough should not
-# Leave the repository dirty.
-Materials/01 Sample commands/Scratch note.md
+# Written by the demo buttons in `01 Permanent links.md` and `03 Key conflicts.md`; clicking through the
+# Walkthrough should not leave the repository dirty.
+Materials/01 Permanent links/New note.md
+Materials/03 Key conflicts/Copy *.md
+Materials/02 Moved and deleted files/Trips/
