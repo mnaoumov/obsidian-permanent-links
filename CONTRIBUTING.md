@@ -50,6 +50,8 @@ npm run build
 - `npm test` — Run tests (unit tests run against [`obsidian-test-mocks`](https://www.npmjs.com/package/obsidian-test-mocks); `.svelte` / `.vue` components are stubbed, so render them in an integration test instead)
 - `npm run commit` — Commit with a guided Conventional Commits prompt
 
+Desktop integration files share one temporary vault. Scope store assertions to the fixture's key: other tests intentionally leave deleted-key records, so restoring one file must not require every tombstone in `keys.json` to disappear.
+
 ## Demo vault
 
 `demo-vault/` is this plugin's documentation: a real Obsidian vault whose notes explain each feature and demonstrate it with `code-button`s that run TypeScript through [CodeScript Toolkit](https://github.com/mnaoumov/obsidian-codescript-toolkit). `npm run version` archives it into the GitHub release, injecting the freshly built plugin and the `demo-vault-helper` bootstrap plugin into the archived copy — so nothing plugin-related is committed under `demo-vault/.obsidian/plugins/`.
