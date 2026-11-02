@@ -21,6 +21,11 @@ import { normalizePath } from 'obsidian';
 
 import type { PermanentLinksApi } from '../api.d.ts';
 
+import {
+  ALIASES_PROPERTY,
+  areKeysMirrored,
+  mirrorKeysIntoFrontmatter
+} from './keys/aliases.ts';
 import { KeyCommandHandler } from './keys/key-command-handler.ts';
 import { resolveKeyEdit } from './keys/key-edit-modal.ts';
 import { KeyForwarder } from './keys/key-forwarder.ts';
@@ -133,6 +138,7 @@ export class Plugin extends PluginBase {
       fileExists: (path): boolean => this.app.vault.getFileByPath(path) !== null,
       generateKey: (): string => generateKey(settings.settings.keyFormat),
       getNotePaths: (): Promise<string[]> => getStartupNotePaths(this.app, propertyName),
+      isNoteMirrored: (path, keys): boolean => !settings.settings.shouldMirrorKeysToAliases || areKeysMirrored(this.app.metadataCache.getFileCache(this.requireFile(path))?.frontmatter?.[ALIASES_PROPERTY], keys),
       notice: (message): void => {
         this.pluginNoticeComponent.showNotice(message);
       },
@@ -147,6 +153,9 @@ export class Plugin extends PluginBase {
         await this.app.fileManager.processFrontMatter(this.requireFile(path), (frontmatter) => {
           if (!checkIsPlainObject(frontmatter)) {
             throw new Error('Frontmatter must be an object.');
+          }
+          if (settings.settings.shouldMirrorKeysToAliases) {
+            mirrorKeysIntoFrontmatter(frontmatter, propertyName, keys);
           }
           if (keys.length > 0) {
             Object.defineProperty(frontmatter, propertyName, { configurable: true, enumerable: true, value: [...keys], writable: true });

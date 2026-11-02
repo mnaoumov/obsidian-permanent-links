@@ -42,6 +42,31 @@ function fixture(): Fixture {
 }
 
 describe('frontmatter reconciliation', () => {
+  it('rewrites an accepted note whose keys are not mirrored, and leaves a mirrored one alone', async () => {
+    const files = new Map<string, unknown>([['mirrored.md', ['A']], ['plain.md', ['B']], ['unkeyed.md', undefined]]);
+    const mirrored = new Set(['mirrored.md']);
+    const writeNoteKeys = vi.fn(async (path: string): Promise<void> => {
+      mirrored.add(path);
+      await noopAsync();
+    });
+    const isNoteMirrored = vi.fn((path: string): boolean => mirrored.has(path));
+    const service = new KeyService({
+      fileExists: (path: string): boolean => files.has(path),
+      getNotePaths: (): string[] => [...files.keys()],
+      isNoteMirrored,
+      notice: vi.fn(),
+      readNoteKeys: (path: string): unknown => files.get(path),
+      readNoteReceipt: (path: string): unknown => files.get(path),
+      readStore: (): Promise<unknown> => Promise.resolve(null),
+      resolveKeyEdit: vi.fn(),
+      writeNoteKeys,
+      writeStore: noopAsync
+    });
+    await service.load();
+    expect(writeNoteKeys.mock.calls).toEqual([['plain.md', ['B']]]);
+    expect(isNoteMirrored).not.toHaveBeenCalledWith('unkeyed.md', expect.anything());
+  });
+
   it('reserves missing and deleted source identities when core merges their frontmatter into another note', async () => {
     const { files, service } = fixture();
     await service.load();
