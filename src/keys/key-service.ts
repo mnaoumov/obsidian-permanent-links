@@ -20,6 +20,8 @@ interface KeyServiceConstructorParams {
   readonly fileExists: (path: string) => boolean;
   readonly generateKey?: () => string;
   readonly getNotePaths: () => Promise<readonly string[]> | readonly string[];
+  // Whether a note's keys are mirrored wherever the plugin mirrors them; a note that is not gets rewritten.
+  readonly isNoteMirrored?: (path: string, keys: readonly string[]) => boolean;
   readonly notice: (message: string) => void;
   readonly readNoteKeys: (path: string) => unknown;
   readonly readNoteReceipt: (path: string) => unknown;
@@ -366,8 +368,7 @@ export class KeyService {
       }
     }
     const result = [...unique.values()];
-    // Do not add coordination metadata to an untouched, unkeyed note.
-    if ((raw !== undefined && JSON.stringify(result) !== JSON.stringify(raw)) || (!isAccepted && (result.length > 0 || this.params.readNoteReceipt(path) !== undefined))) {
+    if (this.shouldWriteNote(path, raw, result, isAccepted)) {
       await this.writeNote(path, result);
     }
     return result;
@@ -395,6 +396,13 @@ export class KeyService {
     }
     await this.params.writeStore(entries);
     this.savedSnapshot = snapshot;
+  }
+
+  private shouldWriteNote(path: string, raw: unknown, keys: readonly string[], isAccepted: boolean): boolean {
+    // Do not add coordination metadata to an untouched, unkeyed note.
+    return (raw !== undefined && JSON.stringify(keys) !== JSON.stringify(raw))
+      || (!isAccepted && (keys.length > 0 || this.params.readNoteReceipt(path) !== undefined))
+      || (keys.length > 0 && !(this.params.isNoteMirrored?.(path, keys) ?? true));
   }
 
   private async writeNote(path: string, keys: readonly string[]): Promise<void> {

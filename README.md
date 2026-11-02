@@ -50,6 +50,7 @@ A copy of the vault ships with every release. You can access it via any of the f
 - **Attachments** get keys too, kept in the plugin's readable `keys.json` because an attachment has no frontmatter: see [Permanent links](<./demo-vault/01 Permanent links.md>).
 - **Moves, renames and deletions** are followed: a moved file's link opens it at its new path, a deleted file's link says when it was deleted and where it last was, and a restored file gets its keys back: see [Moved and deleted files](<./demo-vault/02 Moved and deleted files.md>).
 - **Conflicts** are repaired safely: a copied note loses the duplicate key, a key edited by hand opens a dialog whose default keeps old links working, and a core `Note Composer` merge offers to move the merged note's keys: see [Key conflicts and manual edits](<./demo-vault/03 Key conflicts.md>).
+- **Keys as Obsidian aliases**, opt-in: turn on **Mirror keys into aliases** and every note key is also listed in `aliases`, so the Quick Switcher and link suggestions find a note by its key, without touching the aliases you wrote: see [Settings](<./demo-vault/05 Settings.md>).
 - **Moving to another vault**: tell the old vault where a file went, and its old links forward there: see [Moving between vaults](<./demo-vault/04 Moving between vaults.md>).
 
 Every setting is listed by its `data.json` key in [Settings](<./demo-vault/05 Settings.md>).

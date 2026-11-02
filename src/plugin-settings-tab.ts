@@ -35,6 +35,15 @@ export class PluginSettingsTab extends PluginSettingsTabBase<PluginSettings> {
         }
       }),
       this.settingEx({
+        desc: 'Also list every note key in the note\'s aliases, so the Quick Switcher and link suggestions find the note by its key. Aliases you wrote are kept. Turning this off leaves the added aliases in place.',
+        name: 'Mirror keys into aliases',
+        render: (setting) => {
+          setting.addToggle((toggle) => {
+            this.bind({ propertyName: 'shouldMirrorKeysToAliases', valueComponent: toggle });
+          });
+        }
+      }),
+      this.settingEx({
         desc: 'When a key is unknown, open a file with that unique name (without its extension). Ambiguous names never open a file.',
         name: 'Resolve unique file names',
         render: (setting) => {

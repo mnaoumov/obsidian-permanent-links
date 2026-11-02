@@ -456,6 +456,24 @@ describe('plugin key commands', () => {
     plugin.unload();
   });
 
+  it('mirrors keys into aliases only while the setting is on', async () => {
+    const { api, app, file, internals, mockApp, plugin } = await createFixture();
+    await api.addKey(file, 'before');
+    expect(await app.vault.read(file)).not.toContain('aliases');
+    await internals.pluginSettingsComponent.editAndSave((settings) => {
+      settings.shouldMirrorKeysToAliases = true;
+    });
+    await api.addKey(file, 'after');
+    expect(await app.vault.read(file)).toMatch(/aliases:\n {2}- before\n {2}- after/u);
+    const write = vi.spyOn(app.fileManager, 'processFrontMatter');
+    vi.spyOn(app.metadataCache, 'getFileCache').mockReturnValue({ frontmatter: { 'aliases': ['before'], 'keys': ['before', 'after'], 'keys-accepted': ['before', 'after'] } });
+    mockApp.metadataCache.trigger('changed', file, '', {});
+    await vi.waitFor(() => {
+      expect(write).toHaveBeenCalledTimes(1);
+    });
+    plugin.unload();
+  });
+
   it('retains a frontmatter change arriving while startup persistence is pending', async () => {
     const mockApp = App.createConfigured__();
     const app = mockApp.asOriginalType__();
@@ -510,7 +528,7 @@ describe('plugin key commands', () => {
         definition.render(new SettingEx(tab.containerEl), castTo<import('obsidian').SettingGroup>(null));
       }
     }
-    expect(bind.mock.calls.map(([params]) => params.propertyName)).toEqual(['keyFormat', 'keyPropertyName', 'shouldResolveUniqueFileNames']);
+    expect(bind.mock.calls.map(([params]) => params.propertyName)).toEqual(['keyFormat', 'keyPropertyName', 'shouldMirrorKeysToAliases', 'shouldResolveUniqueFileNames']);
     expect(definitions).toEqual(expect.arrayContaining([expect.objectContaining({ name: 'Key property name' })]));
     plugin.unload();
   });
