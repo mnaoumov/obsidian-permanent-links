@@ -15,6 +15,7 @@ it('resolves a key after moving into a folder note, records deletion and revives
   const vaultPath = getTemporaryVault().path;
   await evalInObsidian({
     async callback({ app }): Promise<void> {
+      await app.vault.create('Unrelated resolver.md', '---\nkeys: [unrelated-resolver]\n---\nUnrelated');
       const file = await app.vault.create('Resolver.md', '---\nkeys:\n  - resolver-test\n---\nBody');
       await app.workspace.getLeaf(false).openFile(file);
     },
@@ -24,7 +25,7 @@ it('resolves a key after moving into a folder note, records deletion and revives
     async poll({ app }): Promise<string> {
       return await app.vault.adapter.read(`${app.vault.configDir}/plugins/permanent-links/keys.json`);
     },
-    until: (value) => value.includes('resolver-test'),
+    until: (value) => value.includes('resolver-test') && value.includes('unrelated-resolver'),
     vaultPath
   });
   await evalInObsidian({
@@ -33,6 +34,11 @@ it('resolves a key after moving into a folder note, records deletion and revives
       if (!file) {
         throw new Error('Missing fixture');
       }
+      const unrelated = app.vault.getFileByPath('Unrelated resolver.md');
+      if (!unrelated) {
+        throw new Error('Missing unrelated fixture');
+      }
+      await app.fileManager.trashFile(unrelated);
       await app.vault.createFolder('Resolver folder');
       await app.vault.rename(file, 'Resolver folder/index.md');
       const other = await app.vault.create('Other resolver.md', 'Other');
@@ -68,7 +74,10 @@ it('resolves a key after moving into a folder note, records deletion and revives
     async poll({ app }): Promise<string> {
       return await app.vault.adapter.read(`${app.vault.configDir}/plugins/permanent-links/keys.json`);
     },
-    until: (value) => value.includes('deletedAt'),
+    until: (value) => {
+      const entries: unknown = JSON.parse(value);
+      return Array.isArray(entries) && entries.some((entry: unknown) => typeof entry === 'object' && entry !== null && 'key' in entry && entry.key === 'resolver-test' && 'deletedAt' in entry);
+    },
     vaultPath
   });
   expect(deleted).toContain('Resolver folder/index.md');
@@ -101,10 +110,18 @@ it('resolves a key after moving into a folder note, records deletion and revives
     async poll({ app }): Promise<string> {
       return await app.vault.adapter.read(`${app.vault.configDir}/plugins/permanent-links/keys.json`);
     },
-    until: (value) => !value.includes('deletedAt') && value.includes('resolver-test'),
+    // Other tests deliberately keep tombstones in this shared vault. Only this key must revive.
+    until: (value) => {
+      const entries: unknown = JSON.parse(value);
+      return Array.isArray(entries) && entries.some((entry: unknown) => typeof entry === 'object' && entry !== null && 'key' in entry && entry.key === 'resolver-test' && !('deletedAt' in entry));
+    },
     vaultPath
   });
   expect(restored).toContain('resolver-test');
+  expect(JSON.parse(restored)).toEqual(expect.arrayContaining([
+    expect.objectContaining({ deletedAt: expect.any(String) as unknown, key: 'unrelated-resolver', path: 'Unrelated resolver.md' }),
+    { key: 'resolver-test', path: 'Resolver folder/index.md' }
+  ]));
 });
 
 it('opens a renamed attachment in its viewer through the registered handler', async () => {
