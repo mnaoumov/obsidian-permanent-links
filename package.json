@@ -1,6 +1,6 @@
 {
   "name": "permanent-links",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Give a note or an attachment a permanent key on request, and open it through a link that keeps working wherever the file moves.",
   "keywords": [],
   "license": "MIT",
