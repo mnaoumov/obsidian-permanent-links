@@ -6,13 +6,33 @@ import {
 import { getTemporaryVault } from 'obsidian-integration-testing/vitest-global-setup-plugin';
 import {
   expect,
-  it
+  it,
+  onTestFinished
 } from 'vitest';
 
 it('copies a permanent URI on request and keeps the key through a rename', async () => {
   const vaultPath = getTemporaryVault().path;
+  onTestFinished(async () => {
+    await evalInObsidian({
+      callback(): void {
+        Reflect.deleteProperty(navigator.clipboard, 'writeText');
+        delete document.body.dataset['permanentLinksCopiedText'];
+      },
+      vaultPath
+    });
+  });
   await evalInObsidian({
     async callback({ app }): Promise<void> {
+      // Record the copied text instead of reading the system clipboard: under load the owned window may lack
+      // Document focus, and then the browser clipboard rejects both the write and the read.
+      Object.defineProperty(navigator.clipboard, 'writeText', {
+        configurable: true,
+        // The closure is serialized into Obsidian, so it cannot import an async no-op helper.
+        // eslint-disable-next-line @typescript-eslint/require-await -- Matches the async clipboard signature.
+        value: async (text: string): Promise<void> => {
+          document.body.dataset['permanentLinksCopiedText'] = text;
+        }
+      });
       const file = await app.vault.create('Copy link.md', 'Body');
       await app.workspace.getLeaf(false).openFile(file);
       app.commands.executeCommandById('permanent-links:copy-permanent-link');
@@ -30,8 +50,8 @@ it('copies a permanent URI on request and keeps the key through a rename', async
   expect(content).toMatch(/keys:\s*\n\s*- [a-z0-9]{12}/u);
   const assignedKey = ensureNonNullable(/- (?<key>[a-z0-9]{12})/u.exec(content)?.groups?.['key']);
   const link = await pollInObsidian({
-    async poll(): Promise<string> {
-      return await navigator.clipboard.readText();
+    poll(): string {
+      return document.body.dataset['permanentLinksCopiedText'] ?? '';
     },
     until: (value) => value.startsWith('obsidian://permanent-links?') && value.endsWith(`&key=${assignedKey}`),
     vaultPath
