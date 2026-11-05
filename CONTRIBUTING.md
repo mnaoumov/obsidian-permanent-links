@@ -11,7 +11,7 @@ Filing from the CLI or the API (`gh issue create --body`, or an AI agent filing 
 ## Prerequisites
 
 - [Node.js](https://nodejs.org/) (latest LTS recommended)
-- npm (comes with Node.js)
+- `npm` (comes with Node.js)
 
 ## Setup
 
@@ -54,7 +54,7 @@ Desktop integration files share one temporary vault. Scope store assertions to t
 
 ## Demo vault
 
-`demo-vault/` is this plugin's documentation: a real Obsidian vault whose notes explain each feature and demonstrate it with `code-button`s that run TypeScript through [CodeScript Toolkit](https://github.com/mnaoumov/obsidian-codescript-toolkit). `npm run version` archives it into the GitHub release, injecting the freshly built plugin and the `demo-vault-helper` bootstrap plugin into the archived copy — so nothing plugin-related is committed under `demo-vault/.obsidian/plugins/`.
+`demo-vault/` is this plugin's documentation: a real Obsidian vault whose notes explain each feature and demonstrate it with `code-button`s that run TypeScript through [CodeScript Toolkit](https://github.com/mnaoumov/obsidian-codescript-toolkit). `npm run version` archives it into the `GitHub` release, injecting the freshly built plugin and the `demo-vault-helper` bootstrap plugin into the archived copy — so nothing plugin-related is committed under `demo-vault/.obsidian/plugins/`.
 
 When you add a user-facing feature, add or update its note in the same change.
 

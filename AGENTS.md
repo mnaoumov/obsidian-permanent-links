@@ -12,7 +12,7 @@ Filing from the CLI or the API (`gh issue create --body`, or an AI agent filing 
 
 `Permanent Links` gives a note or an attachment a permanent key, **only when asked**, and opens it from an `obsidian://` link that carries the key, wherever the file has moved since.
 
-A path is an address, not an identity. It changes when a note moves, is renamed, or grows into a folder (`charlie.md` to `charlie/index.md`). Obsidian rewrites every link inside the vault when that happens, so inside the vault nothing breaks. What it cannot rewrite is every reference from outside: links from another vault, `obsidian://open?file=...` links in bookmarks, messages and emails, paths quoted in other tools and in git history. A key is for those references. A file nobody outside the vault refers to never needs one, so the plugin never keys every file.
+A path is an address, not an identity. It changes when a note moves, is renamed, or grows into a folder (`charlie.md` to `charlie/index.md`). Obsidian rewrites every link inside the vault when that happens, so inside the vault nothing breaks. What it cannot rewrite is every reference from outside: links from another vault, `obsidian://open?file=...` links in bookmarks, messages and emails, paths quoted in other tools and in `git` history. A key is for those references. A file nobody outside the vault refers to never needs one, so the plugin never keys every file.
 
 What already exists, so the plugin does not rebuild it:
 
