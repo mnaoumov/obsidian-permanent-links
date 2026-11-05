@@ -35,7 +35,7 @@ Ids that survive a move are a long-standing request: people in the Obsidian comm
 
 **The documentation is an interactive demo vault.** Every feature has a note that explains what it does and why you would want it, with a button that copies, opens, moves or deletes a supplied file so you can watch the link keep working.
 
-**[Start reading here](<./demo-vault/00 Start.md>)** — it is plain markdown, so it works on GitHub with nothing installed.
+**[Start reading here](<./demo-vault/00 Start.md>)** — it is plain markdown, so it works on `GitHub` with nothing installed.
 
 A copy of the vault ships with every release. You can access it via any of the following:
 

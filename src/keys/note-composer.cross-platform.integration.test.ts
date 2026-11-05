@@ -95,7 +95,7 @@ it.each(['move', 'cancel', 'close', 'stale', 'toggle', 'disable', 'unload'])('ha
       const target = app.vault.getFileByPath(`Merge target ${scenario}.md`);
       return target ? app.vault.read(target) : '';
     },
-    until: (value) => choice === 'move' || choice === 'toggle' ? value.includes(`alias-${choice}`) : value.includes(`Source body ${choice}`),
+    until: (value) => value.includes(choice === 'move' || choice === 'toggle' ? `alias-${choice}` : `Source body ${choice}`),
     vaultPath
   });
   const records = await evalInObsidian({
