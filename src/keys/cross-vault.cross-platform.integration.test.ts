@@ -210,13 +210,18 @@ it.each(['native URI', 'trusted folder move'])('opens a second registered vault 
     if (isMobile) {
       await registerVault(source);
     } else {
+      // Close the target window from the source window's main process. An eval inside the closing window races the
+      // CDP reply against the page teardown, so it can hang until the per-eval cap.
       await evalInObsidian({
         callback(): void {
-          window.setTimeout(() => {
-            window.close();
-          }, 0);
+          const currentWindowId = window.electron.remote.getCurrentWindow().id;
+          for (const browserWindow of window.electron.remote.BrowserWindow.getAllWindows()) {
+            if (browserWindow.id !== currentWindowId) {
+              browserWindow.close();
+            }
+          }
         },
-        vaultPath: target.path
+        vaultPath: source
       });
       await vi.waitFor(async () => {
         const count = await evalInObsidian({
