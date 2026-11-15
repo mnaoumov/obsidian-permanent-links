@@ -3,12 +3,12 @@ import type {
   TFile
 } from 'obsidian';
 
+import { ComponentEx } from '@mnaoumov/obsidian-lib/components/component-ex';
 import { CorePluginToggleComponent } from '@mnaoumov/obsidian-lib/components/core-plugin-toggle-component';
 import { MonkeyAroundComponent } from '@mnaoumov/obsidian-lib/components/monkey-around-component';
 import { confirm } from '@mnaoumov/obsidian-lib/modals/confirm';
 import { invokeAsyncSafely } from '@mnaoumov/typescript-lib/async';
 import { noop } from '@mnaoumov/typescript-lib/function';
-import { Component } from 'obsidian';
 
 import type { KeyService } from './key-service.ts';
 
@@ -19,7 +19,7 @@ interface NoteComposerComponentOfferTransferParams {
   readonly target: TFile;
 }
 
-export class NoteComposerComponent extends Component {
+export class NoteComposerComponent extends ComponentEx {
   public constructor(private readonly app: App, private readonly service: KeyService) {
     super();
   }
