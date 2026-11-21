@@ -1,6 +1,6 @@
 # Permanent Links
 
-[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-ffdd00?logo=buy-me-a-coffee&logoColor=black)](https://www.buymeacoffee.com/mnaoumov) [![GitHub release](https://img.shields.io/github/v/release/mnaoumov/obsidian-permanent-links)](https://github.com/mnaoumov/obsidian-permanent-links/releases) [![GitHub downloads](https://img.shields.io/github/downloads/mnaoumov/obsidian-permanent-links/total)](https://github.com/mnaoumov/obsidian-permanent-links/releases) [![Coverage: 100%](https://img.shields.io/badge/coverage-100%25-brightgreen)](https://github.com/mnaoumov/obsidian-permanent-links)
+[
 
 A path is an address, not an identity. When a note moves, is renamed or grows into a folder, Obsidian updates every link inside the vault, but it cannot update the links that live outside it: `obsidian://open?file=...` links in bookmarks, messages, emails, task trackers and other vaults. Each of those breaks the first time the file moves.
 
