@@ -1,6 +1,6 @@
 # Permanent Links
 
-[
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-ffdd00?logo=buy-me-a-coffee&logoColor=black)](https://www.buymeacoffee.com/mnaoumov) [![GitHub release](https://img.shields.io/github/v/release/mnaoumov/obsidian-permanent-links)](https://github.com/mnaoumov/obsidian-permanent-links/releases) [![Obsidian downloads](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fobsidianmd%2Fobsidian-releases%2Fmaster%2Fcommunity-plugin-stats.json&query=%24%5B%27permanent-links%27%5D.downloads&label=Obsidian%20downloads)](https://community.obsidian.md/plugins/permanent-links) [![Minimum Obsidian version](https://img.shields.io/github/manifest-json/minAppVersion/mnaoumov/obsidian-permanent-links?label=Obsidian)](https://github.com/mnaoumov/obsidian-permanent-links/blob/main/manifest.json) [![CI](https://img.shields.io/github/actions/workflow/status/mnaoumov/obsidian-permanent-links/ci.yml?branch=main&label=CI)](https://github.com/mnaoumov/obsidian-permanent-links/actions/workflows/ci.yml) [![Coverage: 100%](https://img.shields.io/badge/coverage-100%25-brightgreen)](https://github.com/mnaoumov/obsidian-permanent-links)
 
 A path is an address, not an identity. When a note moves, is renamed or grows into a folder, Obsidian updates every link inside the vault, but it cannot update the links that live outside it: `obsidian://open?file=...` links in bookmarks, messages, emails, task trackers and other vaults. Each of those breaks the first time the file moves.
 
