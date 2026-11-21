@@ -37,8 +37,8 @@ describe('mirrorAliases', () => {
   });
 
   it('leaves an aliases value it cannot edit untouched', () => {
-    expect(mirrorAliases({ aliases: { a: 1 }, keys: ['abc'], previousKeys: [] })).toBeUndefined();
-    expect(mirrorAliases({ aliases: ['a', 1], keys: ['abc'], previousKeys: [] })).toBeUndefined();
+    expect(mirrorAliases({ aliases: { a: 1 }, keys: ['abc'], previousKeys: [] })).toBeNull();
+    expect(mirrorAliases({ aliases: ['a', 1], keys: ['abc'], previousKeys: [] })).toBeNull();
   });
 });
 

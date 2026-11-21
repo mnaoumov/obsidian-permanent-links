@@ -21,13 +21,13 @@ export function areKeysMirrored(aliases: unknown, keys: readonly string[]): bool
 
 /**
  * The note's aliases with its keys mirrored in: aliases matching a key the plugin wrote before, and no longer a key,
- * are removed; missing keys are appended. Aliases the user wrote are kept. Returns `undefined` when `aliases` is
+ * are removed; missing keys are appended. Aliases the user wrote are kept. Returns `null` when `aliases` is
  * neither a list of strings nor a string, so it is left untouched.
  */
-export function mirrorAliases(params: MirrorAliasesParams): string[] | undefined {
+export function mirrorAliases(params: MirrorAliasesParams): null | string[] {
   const list = parseAliases(params.aliases);
   if (!list) {
-    return undefined;
+    return null;
   }
   const keyIdentities = new Set(params.keys.map((key) => aliasIdentity(key)));
   const removed = new Set(params.previousKeys.map((key) => aliasIdentity(key)).filter((identity) => !keyIdentities.has(identity)));
@@ -64,12 +64,12 @@ function aliasIdentity(alias: string): string {
   return alias.normalize('NFC').toLowerCase().normalize('NFC');
 }
 
-function parseAliases(value: unknown): string[] | undefined {
+function parseAliases(value: unknown): null | string[] {
   if (value === undefined || value === null) {
     return [];
   }
   if (typeof value === 'string') {
     return [value];
   }
-  return Array.isArray(value) && value.every((alias): alias is string => typeof alias === 'string') ? [...value] : undefined;
+  return Array.isArray(value) && value.every((alias): alias is string => typeof alias === 'string') ? [...value] : null;
 }

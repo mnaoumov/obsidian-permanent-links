@@ -1,5 +1,6 @@
 import type {
   App,
+  ObsidianProtocolData,
   TFile
 } from 'obsidian';
 
@@ -26,18 +27,18 @@ const KEY_WAIT_TIMEOUT_IN_MILLISECONDS = 5000;
 const KEY_WAIT_INTERVAL_IN_MILLISECONDS = 100;
 
 /**
- * The part of the plugin's API (`api.d.ts` in the plugin repository) these buttons read.
- */
-interface PermanentLinksApi {
-  readonly getKeys: (file: TFile) => readonly string[];
-}
-
-/**
  * Optional parts of a permanent link, as they appear in its query string.
  */
 interface LinkTarget {
   readonly block?: string;
   readonly heading?: string;
+}
+
+/**
+ * The part of the plugin's API (`api.d.ts` in the plugin repository) these buttons read.
+ */
+interface PermanentLinksApi {
+  readonly getKeys: (file: TFile) => readonly string[];
 }
 
 /**
@@ -49,6 +50,18 @@ interface LinkTarget {
  */
 export async function copyAndOpenAttachmentLink(app: App): Promise<void> {
   const key = await copyPermanentLink(app, FLOOR_PLAN_PATH);
+  await openOtherNote(app);
+  openPermanentLink(app, key);
+}
+
+/**
+ * Copies the permanent link of `Project plan`, then opens the note through that link from another note.
+ *
+ * Manual equivalent: open `Project plan`, run `Permanent Links: Copy permanent link`, and paste the link into a
+ * browser's address bar.
+ */
+export async function copyAndOpenProjectPlanLink(app: App): Promise<void> {
+  const key = await copyPermanentLink(app, PROJECT_PLAN_PATH);
   await openOtherNote(app);
   openPermanentLink(app, key);
 }
@@ -75,18 +88,6 @@ export async function copyNewNoteLink(app: App): Promise<void> {
 }
 
 /**
- * Copies the permanent link of `Project plan`, then opens the note through that link from another note.
- *
- * Manual equivalent: open `Project plan`, run `Permanent Links: Copy permanent link`, and paste the link into a
- * browser's address bar.
- */
-export async function copyAndOpenProjectPlanLink(app: App): Promise<void> {
-  const key = await copyPermanentLink(app, PROJECT_PLAN_PATH);
-  await openOtherNote(app);
-  openPermanentLink(app, key);
-}
-
-/**
  * Deletes `Old draft`, so its permanent link reports the deletion instead of opening it.
  *
  * Manual equivalent: delete `Old draft` in the File explorer.
@@ -99,6 +100,15 @@ export async function deleteOldDraft(app: App): Promise<void> {
   }
   await app.fileManager.trashFile(file);
   new Notice('Old draft is deleted. Its permanent key is kept as a deleted-key record.');
+}
+
+/**
+ * Runs `List and purge deleted keys`, which lists every deleted key with its last path and deletion time.
+ *
+ * Manual equivalent: `Permanent Links: List and purge deleted keys` in the Command Palette.
+ */
+export function listDeletedKeys(app: App): void {
+  app.commands.executeCommandById(`${PLUGIN_ID}:manage-deleted-keys`);
 }
 
 /**
@@ -120,6 +130,27 @@ export async function moveTravelLogBack(app: App): Promise<void> {
 }
 
 /**
+ * Opens the link `key=floor-plan`, a key nobody assigned. It opens `floor-plan.svg` only while
+ * `shouldResolveUniqueFileNames` is on.
+ *
+ * Manual equivalent: paste the same link into a browser's address bar.
+ */
+export async function openFloorPlanByName(app: App): Promise<void> {
+  await openOtherNote(app);
+  openPermanentLink(app, 'floor-plan');
+}
+
+/**
+ * Opens the permanent link of the deleted `Old draft`.
+ *
+ * Manual equivalent: open the note's permanent link from a browser's address bar.
+ */
+export async function openOldDraftLink(app: App): Promise<void> {
+  await openOtherNote(app);
+  openPermanentLink(app, 'old-draft');
+}
+
+/**
  * Opens a permanent link of this vault from another note, exactly as Obsidian does when an
  * `obsidian://permanent-links?...` link is clicked.
  *
@@ -130,7 +161,18 @@ export function openPermanentLink(app: App, key: string, target: LinkTarget = {}
   if (!handler) {
     throw new Error('Permanent Links is not enabled.');
   }
-  handler({ action: PLUGIN_ID, key, vault: app.vault.getName(), ...target });
+  // The type carries a brand no literal can satisfy; the handler reads only these fields.
+  handler(Object.fromEntries(Object.entries({ action: PLUGIN_ID, key, vault: app.vault.getName(), ...target })) as ObsidianProtocolData);
+}
+
+/**
+ * Opens `Project plan` through its permanent link, scrolled to a block.
+ *
+ * Manual equivalent: add `&block=deadline` to the note's permanent link.
+ */
+export async function openProjectPlanBlock(app: App): Promise<void> {
+  await openOtherNote(app);
+  openPermanentLink(app, 'project-plan', { block: 'deadline' });
 }
 
 /**
@@ -144,13 +186,13 @@ export async function openProjectPlanHeading(app: App): Promise<void> {
 }
 
 /**
- * Opens `Project plan` through its permanent link, scrolled to a block.
+ * Opens `Travel log` through its permanent link, wherever it is now.
  *
- * Manual equivalent: add `&block=deadline` to the note's permanent link.
+ * Manual equivalent: open the note's permanent link from a browser's address bar.
  */
-export async function openProjectPlanBlock(app: App): Promise<void> {
+export async function openTravelLogLink(app: App): Promise<void> {
   await openOtherNote(app);
-  openPermanentLink(app, 'project-plan', { block: 'deadline' });
+  openPermanentLink(app, 'travel-log');
 }
 
 /**
@@ -178,15 +220,6 @@ export async function restoreOldDraft(app: App): Promise<void> {
 }
 
 /**
- * Runs `List and purge deleted keys`, which lists every deleted key with its last path and deletion time.
- *
- * Manual equivalent: `Permanent Links: List and purge deleted keys` in the Command Palette.
- */
-export function listDeletedKeys(app: App): void {
-  app.commands.executeCommandById(`${PLUGIN_ID}:manage-deleted-keys`);
-}
-
-/**
  * Opens `Project plan` and runs `Set key`, which asks for a readable key to add as an alias.
  *
  * Manual equivalent: open the note and run `Permanent Links: Set key` in the Command Palette.
@@ -203,49 +236,18 @@ export async function setProjectPlanKey(app: App): Promise<void> {
  * change applies live -- no window reload, and no writing `data.json` behind a running plugin's back, which
  * it would overwrite from memory as it unloads.
  *
- * Manual equivalent: the `Resolve unique file names` toggle in **Settings -> Community plugins -> Permanent Links**.
+ * Manual equivalent: the `Resolve unique file names` toggle in **Settings -> Community plugins -> `Permanent Links`**.
  */
-export async function setShouldResolveUniqueFileNames(app: App, value: boolean): Promise<void> {
-  await configureCommunityPlugin({ app, pluginId: PLUGIN_ID, settings: { shouldResolveUniqueFileNames: value } });
-  new Notice(`shouldResolveUniqueFileNames is now ${String(value)}. It is live -- no reload needed.`);
-}
-
-/**
- * Opens the link `key=floor-plan`, a key nobody assigned. It opens `floor-plan.svg` only while
- * `shouldResolveUniqueFileNames` is on.
- *
- * Manual equivalent: paste the same link into a browser's address bar.
- */
-export async function openFloorPlanByName(app: App): Promise<void> {
-  await openOtherNote(app);
-  openPermanentLink(app, 'floor-plan');
-}
-
-/**
- * Opens `Travel log` through its permanent link, wherever it is now.
- *
- * Manual equivalent: open the note's permanent link from a browser's address bar.
- */
-export async function openTravelLogLink(app: App): Promise<void> {
-  await openOtherNote(app);
-  openPermanentLink(app, 'travel-log');
-}
-
-/**
- * Opens the permanent link of the deleted `Old draft`.
- *
- * Manual equivalent: open the note's permanent link from a browser's address bar.
- */
-export async function openOldDraftLink(app: App): Promise<void> {
-  await openOtherNote(app);
-  openPermanentLink(app, 'old-draft');
+export async function setShouldResolveUniqueFileNames(app: App, shouldResolve: boolean): Promise<void> {
+  await configureCommunityPlugin({ app, pluginId: PLUGIN_ID, settings: { shouldResolveUniqueFileNames: shouldResolve } });
+  new Notice(`shouldResolveUniqueFileNames is now ${String(shouldResolve)}. It is live -- no reload needed.`);
 }
 
 async function copyPermanentLink(app: App, path: string): Promise<string> {
   const file = requireFile(app, path);
   await app.workspace.getLeaf(false).openFile(file);
   app.commands.executeCommandById(`${PLUGIN_ID}:copy-permanent-link`);
-  const key = await waitForKey(app, file);
+  const key = await waitForKey(file);
   const link = `obsidian://permanent-links?vault=${encodeURIComponent(app.vault.getName())}&key=${encodeURIComponent(key)}`;
   new Notice(`Copied ${link}`);
   return key;
@@ -293,7 +295,7 @@ function requireFile(app: App, path: string): TFile {
   return file;
 }
 
-async function waitForKey(app: App, file: TFile): Promise<string> {
+async function waitForKey(file: TFile): Promise<string> {
   const api = getApi();
   const deadline = Date.now() + KEY_WAIT_TIMEOUT_IN_MILLISECONDS;
   while (Date.now() < deadline) {

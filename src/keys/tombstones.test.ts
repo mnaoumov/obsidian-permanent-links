@@ -53,7 +53,7 @@ describe('tombstones', () => {
     const tombstone = service.lookup('PICTURE');
     expect(tombstone?.deletedAt).toMatch(/^\d{4}-/u);
     expect(tombstone?.path).toBe('image.png');
-    expect(service.resolve('picture')).toBeUndefined();
+    expect(service.resolve('picture')).toBeNull();
     await service.deletePath('image.png');
     expect(service.lookup('picture')).toEqual(tombstone);
     await expect(service.addKey('note.md', 'picture')).rejects.toThrow('already belongs');
@@ -78,7 +78,7 @@ describe('tombstones', () => {
     expect(service.lookup('note')).toBeDefined();
     files.delete('note.md');
     await service.purgeTombstones(['NOTE']);
-    expect(service.lookup('note')).toBeUndefined();
+    expect(service.lookup('note')).toBeNull();
   });
 
   it('keeps unobserved missing entries distinct from confirmed deletions', async () => {
@@ -86,7 +86,7 @@ describe('tombstones', () => {
     await service.load();
     expect(service.lookup('lost')).toEqual({ key: 'lost', path: 'folder/sub/lost.pdf' });
     expect(service.listTombstones()).toEqual([]);
-    expect(service.resolve('lost')).toBeUndefined();
+    expect(service.resolve('lost')).toBeNull();
   });
 
   it.each([{ deletedAt: 'bad' }, { deletedAt: 12 }])('refuses malformed state %j', async (state) => {

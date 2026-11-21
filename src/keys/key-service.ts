@@ -146,9 +146,9 @@ export class KeyService {
     this.isLoaded = true;
   }
 
-  public lookup(key: string): KeyEntry | undefined {
+  public lookup(key: string): KeyEntry | null {
     const entry = this.entries.get(keyIdentity(key));
-    return entry ? { ...entry } : undefined;
+    return entry ? { ...entry } : null;
   }
 
   public moveKeys(fromPath: string, toPath: string): Promise<void> {
@@ -252,9 +252,9 @@ export class KeyService {
     });
   }
 
-  public resolve(key: string): KeyEntry | undefined {
+  public resolve(key: string): KeyEntry | null {
     const entry = this.entries.get(keyIdentity(key));
-    return entry && !entry.deletedAt && this.params.fileExists(entry.path) ? { ...entry } : undefined;
+    return entry && !entry.deletedAt && this.params.fileExists(entry.path) ? { ...entry } : null;
   }
 
   public revivePath(path: string): Promise<void> {
@@ -288,7 +288,7 @@ export class KeyService {
     await this.save();
   }
 
-  private async chooseNoteKeys(path: string, previous: readonly string[], keys: string[], isAccepted: boolean, raw: unknown): Promise<string[] | undefined> {
+  private async chooseNoteKeys(path: string, previous: readonly string[], keys: string[], isAccepted: boolean, raw: unknown): Promise<null | string[]> {
     const removed = previous.filter((key) => keys.every((next) => keyIdentity(next) !== keyIdentity(key)));
     if (!this.isLoaded || removed.length === 0 || isAccepted) {
       return keys;
@@ -296,7 +296,7 @@ export class KeyService {
     const choice = await this.params.resolveKeyEdit(path, previous, keys);
     // The user may edit, rename or delete the note while the modal is open.
     if (!this.params.fileExists(path) || JSON.stringify(this.params.readNoteKeys(path)) !== JSON.stringify(raw)) {
-      return undefined;
+      return null;
     }
     if (choice === 'revert') {
       return [...previous];
@@ -328,7 +328,7 @@ export class KeyService {
     return value.map((key) => normalizeKey(key));
   }
 
-  private async reconcileNote(path: string): Promise<string[] | undefined> {
+  private async reconcileNote(path: string): Promise<null | string[]> {
     const raw = this.params.readNoteKeys(path);
     const snapshot = JSON.stringify([raw]);
     const writing = this.noteWrites.get(path);
@@ -337,7 +337,7 @@ export class KeyService {
       return this.parseNoteKeys(raw);
     }
     if (snapshot === writing?.before) {
-      return undefined;
+      return null;
     }
     this.noteWrites.delete(path);
     const previous = this.getKeys(path);
@@ -355,7 +355,7 @@ export class KeyService {
     const isAccepted = JSON.stringify(keys) === JSON.stringify(this.params.readNoteReceipt(path));
     const chosen = await this.chooseNoteKeys(path, previous, keys, isAccepted, raw);
     if (!chosen) {
-      return undefined;
+      return null;
     }
     const unique = new Map<string, string>();
     for (const key of chosen) {
