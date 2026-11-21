@@ -294,7 +294,7 @@ describe('plugin key commands', () => {
     const command = ensureNonNullable(commands.mock.calls.find(([value]) => value.id === 'manage-deleted-keys')?.[0]);
     command.checkCallback?.(false);
     await vi.waitFor(() => {
-      expect(internals.getKeyService().lookup('note')).toBeUndefined();
+      expect(internals.getKeyService().lookup('note')).toBeNull();
     });
     plugin.unload();
   });

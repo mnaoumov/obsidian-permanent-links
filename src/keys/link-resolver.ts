@@ -13,7 +13,7 @@ interface LinkResolverConstructorParams {
   readonly forward?: (vault: string, query: Partial<ObsidianProtocolData>) => Promise<void>;
   readonly getFilePaths: () => readonly string[];
   readonly getVaultName: () => string;
-  readonly lookup: (key: string) => ResolverEntry | undefined;
+  readonly lookup: (key: string) => null | ResolverEntry;
   readonly missing: (path: string) => Promise<void>;
   readonly notice: (message: string) => void;
   readonly open: (path: string, params: Partial<ObsidianProtocolData>) => Promise<void>;

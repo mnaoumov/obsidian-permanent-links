@@ -10,12 +10,10 @@ export type KeyFormat = 'guid' | 'short';
 
 export function generateKey(format: KeyFormat = 'short'): string {
   if (format === 'guid') {
-    // eslint-disable-next-line n/no-unsupported-features/node-builtins -- Uses Web Crypto in Obsidian's renderer on desktop and mobile.
     return window.crypto.randomUUID().replaceAll('-', '');
   }
   let key = '';
   while (key.length < KEY_LENGTH) {
-    // eslint-disable-next-line n/no-unsupported-features/node-builtins -- Uses Web Crypto in Obsidian's renderer on desktop and mobile.
     const bytes = window.crypto.getRandomValues(new Uint8Array(KEY_LENGTH));
     for (const byte of bytes) {
       // Rejection sampling avoids favouring the first alphabet characters.

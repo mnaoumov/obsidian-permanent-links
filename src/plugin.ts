@@ -104,7 +104,6 @@ export class Plugin extends PluginBase {
   private async copyLink(file: TFile): Promise<void> {
     const key = await this.getKeyService().assignKey(file.path);
     const link = `obsidian://permanent-links?vault=${encodeURIComponent(this.app.vault.getName())}&key=${encodeURIComponent(key)}`;
-    // eslint-disable-next-line n/no-unsupported-features/node-builtins -- Uses the browser clipboard in Obsidian's renderer.
     await window.navigator.clipboard.writeText(link);
     this.pluginNoticeComponent.showNotice('Permanent link copied.');
   }
@@ -393,7 +392,6 @@ export class Plugin extends PluginBase {
     button.textContent = 'Copy new link';
     button.addEventListener('click', () => {
       invokeAsyncSafely(async () => {
-        // eslint-disable-next-line n/no-unsupported-features/node-builtins -- Uses the browser clipboard in Obsidian's renderer.
         await window.navigator.clipboard.writeText(link);
         this.pluginNoticeComponent.showNotice('New permanent link copied.');
       });

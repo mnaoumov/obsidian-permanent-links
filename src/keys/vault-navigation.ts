@@ -21,7 +21,6 @@ interface NativeUriEvent {
 
 export function listVaults(app: App): DestinationVault[] {
   if (app.isMobile) {
-    // eslint-disable-next-line n/no-unsupported-features/node-builtins -- Reads Obsidian's browser device-wide registry, not Node's experimental localStorage.
     const raw: unknown = JSON.parse(window.localStorage.getItem('mobile-external-vaults') ?? '[]');
     if (!Array.isArray(raw) || !raw.every((path): path is string => typeof path === 'string')) {
       throw new Error('Invalid mobile vault registry.');

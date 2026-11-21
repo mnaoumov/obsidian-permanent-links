@@ -30,7 +30,7 @@ function fixture(): Fixture {
     fileExists: (path): boolean => files.has(path),
     getFilePaths: (): string[] => [...files.keys()],
     getVaultName: (): string => 'Vault',
-    lookup: (key): Entry | undefined => entries.get(key),
+    lookup: (key): Entry | null => entries.get(key) ?? null,
     missing,
     notice,
     open,

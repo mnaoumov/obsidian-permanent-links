@@ -241,7 +241,7 @@ describe('KeyService', () => {
     expect(service.resolve('first')?.path).toBe('note.md');
     await service.removeKey('note.md', 'FIRST');
     expect(files.get('note.md')).toEqual(['second']);
-    expect(service.resolve('first')).toBeUndefined();
+    expect(service.resolve('first')).toBeNull();
     await service.removeKey('note.md', 'second');
     expect(files.get('note.md')).toEqual([]);
   });
@@ -259,7 +259,7 @@ describe('KeyService', () => {
     await service.rename('folder', 'moved');
     expect(service.resolve('attachment')?.path).toBe('moved/report.pdf');
     files.delete('moved/report.pdf');
-    expect(service.resolve('attachment')).toBeUndefined();
+    expect(service.resolve('attachment')).toBeNull();
     await expect(service.assignKey('missing.md')).rejects.toThrow('no longer exists');
   });
 
@@ -268,7 +268,7 @@ describe('KeyService', () => {
     files.set('note.md', ['new', 'shared']);
     files.set('other.md', ['shared']);
     await service.load();
-    expect(service.resolve('old')).toBeUndefined();
+    expect(service.resolve('old')).toBeNull();
     expect(service.resolve('new')?.path).toBe('note.md');
     expect(service.resolve('shared')?.path).toBe('other.md');
     files.set('note.md', ['NEW']);

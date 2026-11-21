@@ -37,7 +37,7 @@ describe('indexed startup reconciliation', () => {
       writeStore: noopAsync
     });
     await service.load();
-    expect(service.lookup('old')).toBeUndefined();
+    expect(service.lookup('old')).toBeNull();
     expect(service.resolve('new')?.path).toBe('bravo.md');
     expect(service.resolve('attachment')?.path).toBe('image.png');
     expect(service.lookup('missing')?.path).toBe('missing.md');
