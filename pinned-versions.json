@@ -38,13 +38,6 @@
       "expect": "^0.16.0",
       "manualCheck": "Remove the override and matching resolution once micromark-extension-math admits a patched KaTeX; rerun npm audit and the math rendering probe."
     },
-    "moment": {
-      "section": "overrides",
-      "why": "Clears GHSA-4p3w-j4w9-5jqw, patched in 2.31.0. eslint-plugin-obsidianmd pins Obsidian 1.12.3, which pins Moment 2.29.4. A global override keeps the existing Obsidian type dependency while replacing its vulnerable Moment with the patched compatible 2.x release.",
-      "check": "node -e \"process.stdout.write(require('./node_modules/eslint-plugin-obsidianmd/node_modules/obsidian/package.json').dependencies.moment)\"",
-      "expect": "2.29.4",
-      "manualCheck": "When the linter updates its Obsidian dependency, inspect its Moment range and remove this override and matching resolution if the unmodified tree passes npm audit."
-    },
     "typescript": {
       "check": "node -e \"process.stdout.write(require('typescript-eslint/package.json').peerDependencies.typescript)\"",
       "expect": ">=4.8.4 <6.1.0",
