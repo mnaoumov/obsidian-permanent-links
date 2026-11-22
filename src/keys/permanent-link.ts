@@ -36,6 +36,14 @@ export const PROTOCOL_LINK_PREFIX = 'obsidian://permanent-links?';
 const HTTP_BASE_URL_PATTERN = /^https?:\/\/[^\s#/?]+[^\s#]*$/iu;
 
 interface BuildPermanentLinkParams {
+  /**
+   * A block id the link opens at, without its `^`.
+   */
+  readonly block?: string | undefined;
+  /**
+   * A heading the link opens at. Ignored when {@link block} is set.
+   */
+  readonly heading?: string | undefined;
   readonly key: string;
   /**
    * A base URL of a redirector the user hosts, or an empty string for the `obsidian://` link itself.
@@ -48,16 +56,22 @@ interface BuildPermanentLinkParams {
 /**
  * Builds the link Copy permanent link copies.
  *
- * Without a redirector it is `obsidian://permanent-links?vault=<vault>&key=<key>`. With one it is
+ * Without a redirector it is `obsidian://permanent-links?vault=<vault>&key=<key>`, followed by `&block=<id>` or
+ * `&heading=<heading>` for a link into the note. With a redirector it is
  * `<base>?vault=<vault>&key=<key>`, appended with `&` when the base already has a query, so a chat app or an
  * email client that refuses custom schemes still makes it clickable. The redirector must send the browser on
  * to `obsidian://permanent-links` with every query parameter it received.
  *
- * @param params - The vault, the key and the redirector base URL.
+ * @param params - The vault, the key, the optional heading or block, and the redirector base URL.
  * @returns The link.
  */
 export function buildPermanentLink(params: BuildPermanentLinkParams): string {
-  const query = `vault=${encodeURIComponent(params.vault)}&key=${encodeURIComponent(params.key)}`;
+  let query = `vault=${encodeURIComponent(params.vault)}&key=${encodeURIComponent(params.key)}`;
+  if (params.block) {
+    query += `&block=${encodeURIComponent(params.block)}`;
+  } else if (params.heading) {
+    query += `&heading=${encodeURIComponent(params.heading)}`;
+  }
   const base = params.redirectorBaseUrl.trim();
   if (!base) {
     return PROTOCOL_LINK_PREFIX + query;

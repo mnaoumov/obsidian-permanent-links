@@ -1,5 +1,7 @@
 import type { PluginApiDeclaration } from '@mnaoumov/obsidian-lib/plugin/plugin-api';
 import type {
+  Editor,
+  MarkdownFileInfo,
   ObsidianProtocolData,
   TFile
 } from 'obsidian';
@@ -10,6 +12,7 @@ import { CallbackLayoutReadyComponent } from '@mnaoumov/obsidian-lib/components/
 import { PluginSettingsTabComponent } from '@mnaoumov/obsidian-lib/components/plugin-settings-tab-component';
 import { PluginDataHandler } from '@mnaoumov/obsidian-lib/data-handler';
 import { checkIsPlainObject } from '@mnaoumov/obsidian-lib/frontmatter';
+import { getCacheSafe } from '@mnaoumov/obsidian-lib/metadata-cache';
 import { confirm } from '@mnaoumov/obsidian-lib/modals/confirm';
 import { prompt } from '@mnaoumov/obsidian-lib/modals/prompt';
 import { selectItem } from '@mnaoumov/obsidian-lib/modals/select-item';
@@ -17,7 +20,10 @@ import { PluginBase } from '@mnaoumov/obsidian-lib/plugin/plugin';
 import { PluginEventSourceImpl } from '@mnaoumov/obsidian-lib/plugin/plugin-event-source';
 import { invokeAsyncSafely } from '@mnaoumov/typescript-lib/async';
 import { ensureNonNullable } from '@mnaoumov/typescript-lib/type-guards';
-import { normalizePath } from 'obsidian';
+import {
+  MarkdownView,
+  normalizePath
+} from 'obsidian';
 
 import type { PermanentLinksApi } from '../api.d.ts';
 
@@ -38,6 +44,11 @@ import {
   isValidRedirectorBaseUrl
 } from './keys/permanent-link.ts';
 import { getStartupNotePaths } from './keys/startup-note-paths.ts';
+import { SubpathLinkCommandHandler } from './keys/subpath-link-command-handler.ts';
+import {
+  findSubpathTarget,
+  generateBlockId
+} from './keys/subpath-target.ts';
 import { TombstoneCommandHandler } from './keys/tombstone-command-handler.ts';
 import {
   listVaults,
@@ -48,6 +59,11 @@ import { PluginSettingsComponent } from './plugin-settings-component.ts';
 import { PluginSettingsTab } from './plugin-settings-tab.ts';
 
 const JSON_INDENT = 2;
+
+interface LinkSubpath {
+  readonly block?: string;
+  readonly heading?: string;
+}
 
 export class Plugin extends PluginBase {
   private keyService?: KeyService;
@@ -105,11 +121,12 @@ export class Plugin extends PluginBase {
     ]);
   }
 
-  private async copyLink(file: TFile, settings: PluginSettingsComponent): Promise<void> {
+  private async copyLink(file: TFile, settings: PluginSettingsComponent, subpath: LinkSubpath = {}): Promise<void> {
     const key = await this.getKeyService().assignKey(file.path);
     const redirectorBaseUrl = settings.settings.redirectorBaseUrl;
     const isRedirectorValid = isValidRedirectorBaseUrl(redirectorBaseUrl);
     const link = buildPermanentLink({
+      ...subpath,
       key,
       redirectorBaseUrl: isRedirectorValid ? redirectorBaseUrl : '',
       vault: this.app.vault.getName()
@@ -120,6 +137,31 @@ export class Plugin extends PluginBase {
         ? 'Permanent link copied.'
         : 'Permanent link copied as an obsidian:// link: the redirector base URL in the settings is not an http or https address without a #.'
     );
+  }
+
+  private async copySubpathLink(editor: Editor, context: MarkdownFileInfo, file: TFile, settings: PluginSettingsComponent): Promise<void> {
+    if (context instanceof MarkdownView) {
+      // The cache below is read from disk, so the cursor line must match the saved text.
+      await context.save();
+    }
+    const target = findSubpathTarget({
+      cache: await getCacheSafe(this.app, file),
+      generateBlockId,
+      line: editor.getCursor().line
+    });
+    if (!target) {
+      this.pluginNoticeComponent.showNotice('Put the cursor on a heading or a block to copy a permanent link to it.');
+      return;
+    }
+    if (target.kind === 'heading') {
+      await this.copyLink(file, settings, { heading: target.heading });
+      return;
+    }
+    const { insertion, insertOffset } = target;
+    if (insertion !== null) {
+      await this.app.vault.process(file, (content) => content.slice(0, insertOffset) + insertion + content.slice(insertOffset));
+    }
+    await this.copyLink(file, settings, { block: target.blockId });
   }
 
   private forwardPermanentLink(vault: string, query: Partial<ObsidianProtocolData>): Promise<void> {
@@ -213,6 +255,7 @@ export class Plugin extends PluginBase {
       new KeyCommandHandler({ execute: (file): Promise<void> => this.copyLink(file, settings), icon: 'link', id: 'copy-permanent-link', name: 'Copy permanent link' }),
       new KeyCommandHandler({ execute: (file): Promise<void> => this.setKey(file), icon: 'key', id: 'set-key', name: 'Set key' }),
       new KeyCommandHandler({ execute: (file): Promise<void> => this.removeKey(file), icon: 'unlink', id: 'remove-key', name: 'Remove key' }),
+      new SubpathLinkCommandHandler((editor, context, file): Promise<void> => this.copySubpathLink(editor, context, file, settings)),
       new TombstoneCommandHandler(() => this.manageTombstones())
     ]);
   }

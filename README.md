@@ -46,6 +46,7 @@ A copy of the vault ships with every release. You can access it via any of the f
 ## What it does
 
 - **Copy permanent link** gives the active file a generated key if it has none (12 letters and digits, or a GUID without hyphens if you prefer that shape) and copies `obsidian://permanent-links?vault=<vault>&key=<key>`. The link opens the file wherever it is, at a heading or a block if you add one: see [Permanent links](<./demo-vault/01 Permanent links.md>).
+- **Copy permanent link to heading or block**, in the Command Palette and the editor menu, copies a link that opens at the heading or block under the cursor, giving the block an id when it has none: see [Permanent links](<./demo-vault/01 Permanent links.md>).
 - **Set key** adds a readable key in any script, such as `plan-2026`, as an alias that keeps older links working; **Remove key** asks before removing one: see [Permanent links](<./demo-vault/01 Permanent links.md>).
 - **Attachments** get keys too, kept in the plugin's readable `keys.json` because an attachment has no frontmatter: see [Permanent links](<./demo-vault/01 Permanent links.md>).
 - **Moves, renames and deletions** are followed: a moved file's link opens it at its new path, a deleted file's link says when it was deleted and where it last was, and a restored file gets its keys back: see [Moved and deleted files](<./demo-vault/02 Moved and deleted files.md>).

@@ -78,6 +78,25 @@ export async function copyKeyedNote(app: App): Promise<void> {
 }
 
 /**
+ * Opens `New note`, puts the cursor in its paragraph and runs `Copy permanent link to heading or block`, which
+ * adds a block id to the paragraph and copies a link that opens at it.
+ *
+ * Manual equivalent: put the cursor in any paragraph and run the command, or choose it from the editor menu.
+ */
+export async function copyNewNoteBlockLink(app: App): Promise<void> {
+  const file = await ensureNewNote(app);
+  await app.workspace.getLeaf(false).openFile(file);
+  const editor = app.workspace.activeEditor?.editor;
+  if (!editor) {
+    new Notice('The note must be open in editing view.');
+    return;
+  }
+  const line = editor.getValue().split('\n').findIndex((value) => value.startsWith('Created by'));
+  editor.setCursor({ ch: 0, line: Math.max(line, 0) });
+  app.commands.executeCommandById(`${PLUGIN_ID}:copy-permanent-link-to-heading-or-block`);
+}
+
+/**
  * Creates `New note` if it is missing, then runs `Copy permanent link` on it, which gives it a generated key.
  *
  * Manual equivalent: create any note and run `Permanent Links: Copy permanent link` in the Command Palette.

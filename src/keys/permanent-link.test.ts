@@ -33,6 +33,15 @@ describe('buildPermanentLink', () => {
   });
 });
 
+describe('buildPermanentLink subpaths', () => {
+  it('appends a block, or else a heading', () => {
+    expect(buildPermanentLink({ block: 'abc123', heading: 'Ignored', key: 'k', redirectorBaseUrl: '', vault: 'V' }))
+      .toBe('obsidian://permanent-links?vault=V&key=k&block=abc123');
+    expect(buildPermanentLink({ heading: 'A & B', key: 'k', redirectorBaseUrl: 'https://example.com/r', vault: 'V' }))
+      .toBe('https://example.com/r?vault=V&key=k&heading=A%20%26%20B');
+  });
+});
+
 describe('isValidRedirectorBaseUrl', () => {
   it('accepts an empty value and http or https URLs', () => {
     expect(isValidRedirectorBaseUrl('')).toBe(true);
