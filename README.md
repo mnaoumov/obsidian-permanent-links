@@ -52,8 +52,26 @@ A copy of the vault ships with every release. You can access it via any of the f
 - **Conflicts** are repaired safely: a copied note loses the duplicate key, a key edited by hand opens a dialog whose default keeps old links working, and a core `Note Composer` merge offers to move the merged note's keys: see [Key conflicts and manual edits](<./demo-vault/03 Key conflicts.md>).
 - **Keys as Obsidian aliases**, opt-in: turn on **Mirror keys into aliases** and every note key is also listed in `aliases`, so the Quick Switcher and link suggestions find a note by its key, without touching the aliases you wrote: see [Settings](<./demo-vault/05 Settings.md>).
 - **Moving to another vault**: tell the old vault where a file went, and its old links forward there: see [Moving between vaults](<./demo-vault/04 Moving between vaults.md>).
+- **Clickable https links**, opt-in: set **Redirector base URL** to a redirector you host, and **Copy permanent link** copies `<base>?vault=<vault>&key=<key>`, which chat apps and email clients keep clickable where they strip `obsidian://` links: see [Redirector](#redirector).
 
 Every setting is listed by its `data.json` key in [Settings](<./demo-vault/05 Settings.md>).
+
+### Redirector
+
+**Redirector base URL** is empty by default, and the plugin never sends links through anyone else's domain: a permanent link that depends on a service you do not control is only as permanent as that service. To use it, host a redirector that answers every request with a redirect to `obsidian://permanent-links`, carrying the **whole query string** it received, so `vault`, `key`, `heading`, `block` and `openmode` all survive. For example, a `Cloudflare Workers` script:
+
+```js
+export default {
+  fetch(request) {
+    const { search } = new URL(request.url);
+    return new Response(null, { headers: { Location: `obsidian://permanent-links${search}` }, status: 302 });
+  }
+};
+```
+
+Then set **Redirector base URL** to its address, such as `https://links.example.com/open`. The base must be an `http` or `https` address without a `#`; when it is not, **Copy permanent link** copies the `obsidian://` link and says why. A base that already has a query gets the link's parameters appended with `&`. Keep the redirector at the same address for as long as the links you shared should work.
+
+The idea and the shape of the setting come from `Vault Permalink Kit` (MIT, Copyright (c) 2024 Convex Works).
 
 ## See also
 

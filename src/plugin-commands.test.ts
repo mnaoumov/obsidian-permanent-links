@@ -38,7 +38,7 @@ vi.mock('./keys/key-edit-modal.ts', () => ({ resolveKeyEdit: vi.fn() }));
 const vaultNavigation = await import('./keys/vault-navigation.ts');
 
 interface PluginInternals {
-  readonly copyLink: (file: TFile) => Promise<void>;
+  readonly copyLink: (file: TFile, settings: PluginSettingsComponent) => Promise<void>;
   readonly getKeyService: () => KeyService;
   readonly getPluginApis: () => PluginApiDeclaration<PermanentLinksApi>[];
   readonly initializeKeys: (settings: PluginSettingsComponent) => Promise<void>;
@@ -341,14 +341,27 @@ describe('plugin key commands', () => {
     plugin.unload();
   });
 
-  it('copies an encoded URI and reuses the first key', async () => {
-    const { api, file, internals, plugin } = await createFixture();
+  it('copies an encoded URI, reuses the first key and honours the redirector base URL', async () => {
+    const { api, app, file, internals, plugin } = await createFixture();
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
     await api.addKey(file, '文字');
-    await internals.copyLink(file);
+    await internals.copyLink(file, internals.pluginSettingsComponent);
     expect(writeText).toHaveBeenCalledWith(expect.stringContaining('&key=%E6%96%87%E5%AD%97'));
     expect(api.getKeys(file)).toEqual(['文字']);
+    const notice = vi.spyOn(PluginNoticeComponent.prototype, 'showNotice');
+    await internals.pluginSettingsComponent.editAndSave((settings) => {
+      settings.redirectorBaseUrl = 'https://links.example.com/open';
+    });
+    await internals.copyLink(file, internals.pluginSettingsComponent);
+    expect(writeText).toHaveBeenLastCalledWith(`https://links.example.com/open?vault=${encodeURIComponent(app.vault.getName())}&key=%E6%96%87%E5%AD%97`);
+    expect(notice).toHaveBeenLastCalledWith('Permanent link copied.');
+    await internals.pluginSettingsComponent.editAndSave((settings) => {
+      settings.redirectorBaseUrl = 'links.example.com';
+    });
+    await internals.copyLink(file, internals.pluginSettingsComponent);
+    expect(writeText).toHaveBeenLastCalledWith(expect.stringMatching(/^obsidian:\/\/permanent-links\?/u));
+    expect(notice).toHaveBeenLastCalledWith(expect.stringContaining('redirector base URL'));
     plugin.unload();
   });
 
@@ -528,7 +541,7 @@ describe('plugin key commands', () => {
         definition.render(new SettingEx(tab.containerEl), castTo<import('obsidian').SettingGroup>(null));
       }
     }
-    expect(bind.mock.calls.map(([params]) => params.propertyName)).toEqual(['keyFormat', 'keyPropertyName', 'shouldMirrorKeysToAliases', 'shouldResolveUniqueFileNames']);
+    expect(bind.mock.calls.map(([params]) => params.propertyName)).toEqual(['keyFormat', 'keyPropertyName', 'redirectorBaseUrl', 'shouldMirrorKeysToAliases', 'shouldResolveUniqueFileNames']);
     expect(definitions).toEqual(expect.arrayContaining([expect.objectContaining({ name: 'Key property name' })]));
     plugin.unload();
   });

@@ -33,6 +33,10 @@ import { KeyService } from './keys/key-service.ts';
 import { generateKey } from './keys/key.ts';
 import { LinkResolver } from './keys/link-resolver.ts';
 import { NoteComposerComponent } from './keys/note-composer-component.ts';
+import {
+  buildPermanentLink,
+  isValidRedirectorBaseUrl
+} from './keys/permanent-link.ts';
 import { getStartupNotePaths } from './keys/startup-note-paths.ts';
 import { TombstoneCommandHandler } from './keys/tombstone-command-handler.ts';
 import {
@@ -101,11 +105,21 @@ export class Plugin extends PluginBase {
     ]);
   }
 
-  private async copyLink(file: TFile): Promise<void> {
+  private async copyLink(file: TFile, settings: PluginSettingsComponent): Promise<void> {
     const key = await this.getKeyService().assignKey(file.path);
-    const link = `obsidian://permanent-links?vault=${encodeURIComponent(this.app.vault.getName())}&key=${encodeURIComponent(key)}`;
+    const redirectorBaseUrl = settings.settings.redirectorBaseUrl;
+    const isRedirectorValid = isValidRedirectorBaseUrl(redirectorBaseUrl);
+    const link = buildPermanentLink({
+      key,
+      redirectorBaseUrl: isRedirectorValid ? redirectorBaseUrl : '',
+      vault: this.app.vault.getName()
+    });
     await window.navigator.clipboard.writeText(link);
-    this.pluginNoticeComponent.showNotice('Permanent link copied.');
+    this.pluginNoticeComponent.showNotice(
+      isRedirectorValid
+        ? 'Permanent link copied.'
+        : 'Permanent link copied as an obsidian:// link: the redirector base URL in the settings is not an http or https address without a #.'
+    );
   }
 
   private forwardPermanentLink(vault: string, query: Partial<ObsidianProtocolData>): Promise<void> {
@@ -196,7 +210,7 @@ export class Plugin extends PluginBase {
     this.keyService = service;
     this.addChild(new NoteComposerComponent(this.app, service));
     await this.commandHandlerComponent.registerCommandHandlers(() => [
-      new KeyCommandHandler({ execute: (file): Promise<void> => this.copyLink(file), icon: 'link', id: 'copy-permanent-link', name: 'Copy permanent link' }),
+      new KeyCommandHandler({ execute: (file): Promise<void> => this.copyLink(file, settings), icon: 'link', id: 'copy-permanent-link', name: 'Copy permanent link' }),
       new KeyCommandHandler({ execute: (file): Promise<void> => this.setKey(file), icon: 'key', id: 'set-key', name: 'Set key' }),
       new KeyCommandHandler({ execute: (file): Promise<void> => this.removeKey(file), icon: 'unlink', id: 'remove-key', name: 'Remove key' }),
       new TombstoneCommandHandler(() => this.manageTombstones())
