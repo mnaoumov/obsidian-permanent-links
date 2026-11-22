@@ -35,6 +35,16 @@ export class PluginSettingsTab extends PluginSettingsTabBase<PluginSettings> {
         }
       }),
       this.settingEx({
+        desc: 'Optional. An http or https address of a redirector you host. When set, Copy permanent link copies <base>?vault=<vault>&key=<key>, which chat apps and email clients keep clickable, and the redirector must send it on to obsidian://permanent-links with every query parameter. Leave empty to copy the obsidian:// link.',
+        name: 'Redirector base URL',
+        render: (setting) => {
+          setting.addText((text) => {
+            text.setPlaceholder('https://links.example.com/open');
+            this.bind({ propertyName: 'redirectorBaseUrl', valueComponent: text });
+          });
+        }
+      }),
+      this.settingEx({
         desc: 'Also list every note key in the note\'s aliases, so the Quick Switcher and link suggestions find the note by its key. Aliases you wrote are kept. Turning this off leaves the added aliases in place.',
         name: 'Mirror keys into aliases',
         render: (setting) => {
