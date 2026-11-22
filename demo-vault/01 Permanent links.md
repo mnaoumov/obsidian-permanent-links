@@ -43,6 +43,21 @@ Manual equivalent: copy the link of [Project plan](<./Materials/01 Permanent lin
 
 A link to a key the vault does not know says so in a notice, rather than opening the wrong file.
 
+## Copy a link to a heading or a block
+
+**`Permanent Links`: Copy permanent link to heading or block** copies a link that opens at the heading or block under the cursor. On a heading line it adds `&heading=<heading>`. In a paragraph, list item, table, quote or code block it adds `&block=<block id>`, reusing the block's id or giving it a new one: six random characters from `a-z0-9`, at the end of a paragraph or list item, and on a line of its own after any other block. A note with no key gets one first, as **Copy permanent link** does. Only the block at the cursor counts, even with a longer selection.
+
+```code-button
+---
+caption: Copy a link to the paragraph of New note
+---
+await require('/demoSetup.ts').copyNewNoteBlockLink(app);
+```
+
+`New note` now ends its paragraph with `^` and the new block id, and the copied link opens the note there.
+
+Manual equivalent: put the cursor in a heading or a paragraph and run the command from the Command Palette, or right-click and choose it from the editor menu.
+
 ## Set key
 
 **`Permanent Links`: Set key** asks for a readable key and adds it to the file as an alias. The keys the file already has keep working, so links already sent out do not break.

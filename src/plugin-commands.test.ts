@@ -12,7 +12,11 @@ import { SettingEx } from '@mnaoumov/obsidian-lib/setting-ex';
 import { noopAsync } from '@mnaoumov/typescript-lib/function';
 import { castTo } from '@mnaoumov/typescript-lib/object-utils';
 import { ensureNonNullable } from '@mnaoumov/typescript-lib/type-guards';
-import { App } from 'obsidian-test-mocks/obsidian';
+import {
+  App,
+  MarkdownView,
+  Menu
+} from 'obsidian-test-mocks/obsidian';
 import {
   afterEach,
   describe,
@@ -547,6 +551,84 @@ describe('plugin key commands', () => {
   });
 });
 
+describe('copy permanent link to heading or block', () => {
+  function runCommand(fixture: PluginFixture, line: number, context: import('obsidian').MarkdownFileInfo): void {
+    const command = ensureNonNullable(fixture.commands.mock.calls.find(([value]) => value.id === 'copy-permanent-link-to-heading-or-block')?.[0]);
+    const editor = castTo<import('obsidian').Editor>({ getCursor: () => ({ ch: 0, line }) });
+    expect(command.editorCheckCallback?.(true, editor, castTo<import('obsidian').MarkdownFileInfo>({ file: null }))).toBe(false);
+    expect(command.editorCheckCallback?.(true, editor, context)).toBe(true);
+    command.editorCheckCallback?.(false, editor, context);
+  }
+
+  it('copies a heading link, adds a block id, reuses it, and refuses a blank line', async () => {
+    const fixture = await createFixture();
+    const { app, file, plugin } = fixture;
+    await app.vault.modify(file, '# Plan\n\nFirst paragraph\n\n| a |\n| - |\n| b |\n');
+    const writeText = vi.fn(noopAsync);
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+    const notice = vi.spyOn(PluginNoticeComponent.prototype, 'showNotice');
+    const context = castTo<import('obsidian').MarkdownFileInfo>({ file });
+
+    const menu = Menu.create2__();
+    const addItem = vi.spyOn(menu, 'addItem');
+    app.workspace.trigger('editor-menu', menu, castTo<import('obsidian').Editor>({}), context);
+    expect(addItem).toHaveBeenCalled();
+    runCommand(fixture, 0, context);
+    await vi.waitFor(() => {
+      expect(writeText).toHaveBeenLastCalledWith(expect.stringMatching(/&key=[a-z0-9]{12}&heading=Plan$/u));
+    });
+
+    async function lineOf(text: string): Promise<number> {
+      const content = await appRead(file, plugin);
+      return content.split('\n').indexOf(text);
+    }
+    runCommand(fixture, await lineOf('First paragraph'), context);
+    await vi.waitFor(async () => {
+      expect(await appRead(file, plugin)).toMatch(/First paragraph \^[a-z0-9]{6}\n/u);
+    });
+    const blockId = ensureNonNullable(/First paragraph \^(?<id>[a-z0-9]{6})/u.exec(await appRead(file, plugin))?.groups?.['id']);
+    await vi.waitFor(() => {
+      expect(writeText).toHaveBeenLastCalledWith(expect.stringMatching(new RegExp(`&block=${blockId}$`, 'u')));
+    });
+
+    const contentWithId = await appRead(file, plugin);
+    const paragraphLine = contentWithId.split('\n').findIndex((value) => value.startsWith('First paragraph'));
+    runCommand(fixture, paragraphLine, context);
+    await vi.waitFor(() => {
+      expect(writeText).toHaveBeenCalledTimes(3);
+    });
+    expect(await appRead(file, plugin)).toBe(contentWithId);
+
+    const tableLine = contentWithId.split('\n').indexOf('| b |');
+    runCommand(fixture, tableLine, context);
+    await vi.waitFor(async () => {
+      expect(await appRead(file, plugin)).toMatch(/\| b \|\n\n\^[a-z0-9]{6}\n/u);
+    });
+
+    runCommand(fixture, await lineOf(''), context);
+    await vi.waitFor(() => {
+      expect(notice).toHaveBeenLastCalledWith('Put the cursor on a heading or a block to copy a permanent link to it.');
+    });
+    plugin.unload();
+  });
+
+  it('saves an open Markdown view before reading the note', async () => {
+    const fixture = await createFixture();
+    const { app, file, plugin } = fixture;
+    await app.vault.modify(file, '# Saved\n');
+    const writeText = vi.fn(noopAsync);
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+    const view = Object.create(MarkdownView.prototype) as MarkdownView;
+    const save = vi.fn(noopAsync);
+    Object.defineProperties(view, { file: { value: file }, save: { value: save } });
+    runCommand(fixture, 0, castTo<import('obsidian').MarkdownFileInfo>(view));
+    await vi.waitFor(() => {
+      expect(writeText).toHaveBeenLastCalledWith(expect.stringMatching(/&heading=Saved$/u));
+    });
+    expect(save).toHaveBeenCalled();
+    plugin.unload();
+  });
+});
 interface PluginFixture {
   readonly api: PermanentLinksApi;
   readonly app: import('obsidian').App;
