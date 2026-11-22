@@ -26,6 +26,7 @@ import {
 } from 'obsidian';
 
 import type { PermanentLinksApi } from '../api.d.ts';
+import type { LinkListEntry } from './keys/link-list.ts';
 
 import {
   ALIASES_PROPERTY,
@@ -37,6 +38,7 @@ import { resolveKeyEdit } from './keys/key-edit-modal.ts';
 import { KeyForwarder } from './keys/key-forwarder.ts';
 import { KeyService } from './keys/key-service.ts';
 import { generateKey } from './keys/key.ts';
+import { formatLinkList } from './keys/link-list.ts';
 import { LinkResolver } from './keys/link-resolver.ts';
 import { NoteComposerComponent } from './keys/note-composer-component.ts';
 import {
@@ -59,6 +61,7 @@ import { PluginSettingsComponent } from './plugin-settings-component.ts';
 import { PluginSettingsTab } from './plugin-settings-tab.ts';
 
 const JSON_INDENT = 2;
+const INVALID_REDIRECTOR_REASON = 'the redirector base URL in the settings is not an http or https address without a #.';
 
 interface LinkSubpath {
   readonly block?: string;
@@ -121,21 +124,38 @@ export class Plugin extends PluginBase {
     ]);
   }
 
-  private async copyLink(file: TFile, settings: PluginSettingsComponent, subpath: LinkSubpath = {}): Promise<void> {
+  private async buildLink(file: TFile, settings: PluginSettingsComponent, subpath: LinkSubpath = {}): Promise<string> {
     const key = await this.getKeyService().assignKey(file.path);
     const redirectorBaseUrl = settings.settings.redirectorBaseUrl;
-    const isRedirectorValid = isValidRedirectorBaseUrl(redirectorBaseUrl);
-    const link = buildPermanentLink({
+    return buildPermanentLink({
       ...subpath,
       key,
-      redirectorBaseUrl: isRedirectorValid ? redirectorBaseUrl : '',
+      redirectorBaseUrl: isValidRedirectorBaseUrl(redirectorBaseUrl) ? redirectorBaseUrl : '',
       vault: this.app.vault.getName()
     });
+  }
+
+  private async copyLink(file: TFile, settings: PluginSettingsComponent, subpath: LinkSubpath = {}): Promise<void> {
+    const link = await this.buildLink(file, settings, subpath);
     await window.navigator.clipboard.writeText(link);
     this.pluginNoticeComponent.showNotice(
-      isRedirectorValid
+      isValidRedirectorBaseUrl(settings.settings.redirectorBaseUrl)
         ? 'Permanent link copied.'
-        : 'Permanent link copied as an obsidian:// link: the redirector base URL in the settings is not an http or https address without a #.'
+        : `Permanent link copied as an obsidian:// link: ${INVALID_REDIRECTOR_REASON}`
+    );
+  }
+
+  private async copyLinks(files: TFile[], settings: PluginSettingsComponent): Promise<void> {
+    const entries: LinkListEntry[] = [];
+    // One at a time, in selection order, so keys are assigned in the order the list shows them.
+    for (const file of files) {
+      entries.push({ link: await this.buildLink(file, settings), name: file.extension === 'md' ? file.basename : file.name });
+    }
+    await window.navigator.clipboard.writeText(formatLinkList(entries));
+    this.pluginNoticeComponent.showNotice(
+      isValidRedirectorBaseUrl(settings.settings.redirectorBaseUrl)
+        ? `Permanent links of ${String(files.length)} files copied.`
+        : `Permanent links of ${String(files.length)} files copied as obsidian:// links: ${INVALID_REDIRECTOR_REASON}`
     );
   }
 
@@ -252,7 +272,13 @@ export class Plugin extends PluginBase {
     this.keyService = service;
     this.addChild(new NoteComposerComponent(this.app, service));
     await this.commandHandlerComponent.registerCommandHandlers(() => [
-      new KeyCommandHandler({ execute: (file): Promise<void> => this.copyLink(file, settings), icon: 'link', id: 'copy-permanent-link', name: 'Copy permanent link' }),
+      new KeyCommandHandler({
+        execute: (file): Promise<void> => this.copyLink(file, settings),
+        executeFiles: (files): Promise<void> => this.copyLinks(files, settings),
+        icon: 'link',
+        id: 'copy-permanent-link',
+        name: 'Copy permanent link'
+      }),
       new KeyCommandHandler({ execute: (file): Promise<void> => this.setKey(file), icon: 'key', id: 'set-key', name: 'Set key' }),
       new KeyCommandHandler({ execute: (file): Promise<void> => this.removeKey(file), icon: 'unlink', id: 'remove-key', name: 'Remove key' }),
       new SubpathLinkCommandHandler((editor, context, file): Promise<void> => this.copySubpathLink(editor, context, file, settings)),

@@ -21,6 +21,17 @@ Manual equivalent: create any note and run **`Permanent Links`: Copy permanent l
 
 `New note` is gitignored, so it stays out of your repository.
 
+### Copy links of several files
+
+Select several files in the File explorer (`Ctrl`-click or `Shift`-click, `Cmd`-click on macOS), right-click the selection and choose **Copy permanent link**. Every selected note or attachment without a key gets one, and the clipboard receives one Markdown list, one `- [name](link)` line per file in the order you selected them, ready to paste into a note:
+
+```markdown
+- [Project plan](obsidian://permanent-links?vault=...&key=project-plan)
+- [floor-plan.svg](obsidian://permanent-links?vault=...&key=...)
+```
+
+Manual equivalent: select `Project plan` and `floor-plan.svg` in `Materials/01 Permanent links/`, right-click and choose **Copy permanent link**. A selection that includes a folder does not offer the item.
+
 ## Open a link to a heading or a block
 
 A permanent link opens the file wherever it is. Add `&heading=<heading>` or `&block=<block id>` to land on a part of a note, as an ordinary Obsidian link does.
