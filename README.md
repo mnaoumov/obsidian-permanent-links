@@ -61,11 +61,16 @@ Every setting is listed by its `data.json` key in [Settings](<./demo-vault/05 Se
 
 | Plugin | Features | How `Permanent Links` differs |
 | --- | --- | --- |
+| [`Abbrlink`](https://community.obsidian.md/plugins/abbrlink) | writes a short hash into an `abbrlink` frontmatter field for static-site permalinks; for every file in a batch or for each new file; configurable hash length | Covers part of it: writes ids, but opens nothing by them; keys a file only when asked; keys attachments too |
 | [`Add an ID to the front matter`](https://community.obsidian.md/plugins/guid-front-matter) | adds a globally unique id to the frontmatter of every note | Covers part of it: writes ids, but opens nothing by them; keys a file only when asked; keys attachments too |
 | [`Advanced URI`](https://community.obsidian.md/plugins/obsidian-advanced-uri) | `obsidian://adv-uri` links for many actions; opens a note by a frontmatter id field; can generate the id | Same goal for links to notes: adds attachments; an index instead of a scan; duplicate repair; a record of deleted files; a warning when a key is edited by hand; forwarding to another vault |
-| [`Note UID Generator`](https://community.obsidian.md/plugins/note_uid_generator) | generates unique ids for notes, automatically or by command, into frontmatter | Covers part of it: writes ids, but opens nothing by them; keys attachments too |
+| [`Copy Link`](https://community.obsidian.md/plugins/copy-link) | commands to copy wikilinks, embeds and footnotes to a file, heading or block; copies an `obsidian://open` URL to a block | Covers part of it: its block URL names the file by its path, so it breaks when the file moves; this plugin's link names a key |
+| [`Microsoft-Compatible Link`](https://community.obsidian.md/plugins/obsid-link) | copies or opens an `https://obsid.net` link that redirects to `obsidian://open`, so it stays clickable where custom URI schemes are stripped | Different approach: its link names the file by its path, so it breaks when the file moves; this plugin's link names a key; no `https` wrapper |
+| [`Note UID Generator`](https://community.obsidian.md/plugins/note_uid_generator) | generates UUID, NanoID, ULID or Snowflake ids into frontmatter, automatically or by command; duplicate detection; copies a note's id, or titles and ids of several notes | Covers part of it: writes and copies ids, but opens nothing by them; keys attachments too |
+| [`Notes UID`](https://github.com/mrjackphil/obsidian-note-uid) | `obsidian://open-by-uid` opens a note by an `id` frontmatter field; unlisted, last changed in 2021 | Same goal for links to notes: adds key generation; attachments; an index instead of a scan; deleted-file records; duplicate repair |
+| [`Vault Permalink Kit`](https://github.com/Convex-Works/vault-permalink-kit) | copies an `obsidian://open-document` link with a UUID stored in a `permalink` frontmatter field; opens it by scanning the vault; optional `https` redirector base URL; unlisted | Same goal for links to notes: adds attachments; an index instead of a scan; several keys per file; deleted-file records; duplicate repair; no `https` redirector |
 
-Last searched for similar plugins on 2026-10-31.
+Last searched for similar plugins on 2026-11-21.
 
 ## For plugin developers
 
