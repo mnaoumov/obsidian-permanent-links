@@ -15,7 +15,8 @@ import { ensureNonNullable } from '@mnaoumov/typescript-lib/type-guards';
 import {
   App,
   MarkdownView,
-  Menu
+  Menu,
+  MenuItem
 } from 'obsidian-test-mocks/obsidian';
 import {
   afterEach,
@@ -43,6 +44,7 @@ const vaultNavigation = await import('./keys/vault-navigation.ts');
 
 interface PluginInternals {
   readonly copyLink: (file: TFile, settings: PluginSettingsComponent) => Promise<void>;
+  readonly copyLinks: (files: TFile[], settings: PluginSettingsComponent) => Promise<void>;
   readonly getKeyService: () => KeyService;
   readonly getPluginApis: () => PluginApiDeclaration<PermanentLinksApi>[];
   readonly initializeKeys: (settings: PluginSettingsComponent) => Promise<void>;
@@ -75,6 +77,10 @@ async function createFixture(): Promise<PluginFixture> {
   });
   const api = ensureNonNullable(internals.getPluginApis()[0]).api;
   return { api, app, commands, file, internals, mockApp, plugin };
+}
+
+function flattenMenuItems(menu: Menu): MenuItem[] {
+  return menu.menuItems__.flatMap((item) => [item, ...(item.submenu ? flattenMenuItems(item.submenu) : [])]);
 }
 
 describe('plugin key commands', () => {
@@ -434,6 +440,44 @@ describe('plugin key commands', () => {
       settings.keyPropertyName = ' ';
     });
     await expect(internals.initializeKeys(internals.pluginSettingsComponent)).rejects.toThrow('must not be empty');
+    plugin.unload();
+  });
+
+  it('copies permanent links of a multi-file selection as one Markdown list in selection order', async () => {
+    const { api, app, file, internals, plugin } = await createFixture();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+    const notice = vi.spyOn(PluginNoticeComponent.prototype, 'showNotice');
+    const attachment = await app.vault.create('report.pdf', 'data');
+    await api.addKey(file, 'existing');
+    const folder = await app.vault.createFolder('folder');
+
+    const folderMenu = Menu.create2__();
+    const folderAddItem = vi.spyOn(folderMenu, 'addItem');
+    app.workspace.trigger('files-menu', folderMenu, [attachment, folder], 'file-explorer');
+    expect(folderAddItem).not.toHaveBeenCalled();
+
+    const menu = Menu.create2__();
+    const addItem = vi.spyOn(menu, 'addItem');
+    app.workspace.trigger('files-menu', menu, [attachment, file], 'file-explorer');
+    expect(addItem).toHaveBeenCalled();
+    const copyItem = ensureNonNullable(flattenMenuItems(menu).find((item) => item.title__ === 'Copy permanent link'));
+    ensureNonNullable(copyItem.onClick__)(new MouseEvent('click'));
+    await vi.waitFor(() => {
+      expect(writeText).toHaveBeenCalled();
+    });
+    const attachmentKey = ensureNonNullable(api.getKeys(attachment)[0]);
+    const vault = encodeURIComponent(app.vault.getName());
+    expect(writeText).toHaveBeenLastCalledWith(
+      `- [report.pdf](obsidian://permanent-links?vault=${vault}&key=${attachmentKey})\n- [note](obsidian://permanent-links?vault=${vault}&key=existing)`
+    );
+    expect(notice).toHaveBeenLastCalledWith('Permanent links of 2 files copied.');
+
+    await internals.pluginSettingsComponent.editAndSave((settings) => {
+      settings.redirectorBaseUrl = 'links.example.com';
+    });
+    await internals.copyLinks([file], internals.pluginSettingsComponent);
+    expect(notice).toHaveBeenLastCalledWith(expect.stringContaining('copied as obsidian:// links'));
     plugin.unload();
   });
 

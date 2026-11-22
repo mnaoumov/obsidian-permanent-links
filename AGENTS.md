@@ -50,7 +50,7 @@ Copy permanent link reuses the first key or generates one; its link is built by 
 
 ### Commands and the link
 
-- **Copy permanent link**: for the active file, or a file's context menu in the File explorer. Assigns a generated key if the file has none, then copies `obsidian://permanent-links?vault=<vault>&key=<key>`.
+- **Copy permanent link**: for the active file, or a file's context menu in the File explorer. Assigns a generated key if the file has none, then copies `obsidian://permanent-links?vault=<vault>&key=<key>`. On a multi-file File explorer selection (`files-menu`, files only, no folders) it keys each file in selection order and copies one Markdown list, `- [name](link)` per file, formatted by `src/keys/link-list.ts` (name escaped, parentheses in the link percent-encoded); the name is a note's basename or an attachment's full name. Modelled on `Note UID Generator`'s "Copy titles+UIDs for selected files" (0BSD).
 - **Set key**: a prompt to type a readable key, validated as above.
 - **Remove key**: asks first, because external links stop working.
 - **The link** is registered with `registerObsidianProtocolHandler('permanent-links', ...)`. A live key opens its file. A key with a tombstone says the file was deleted, when, and the path it last had. An unknown key says so.
