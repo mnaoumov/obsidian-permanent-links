@@ -21,12 +21,13 @@ interface NativeUriEvent {
 
 export function listVaults(app: App): DestinationVault[] {
   if (app.isMobile) {
-    const raw: unknown = JSON.parse(window.localStorage.getItem('mobile-external-vaults') ?? '[]');
+    const raw: unknown = JSON.parse(activeWindow.localStorage.getItem('mobile-external-vaults') ?? '[]');
     if (!Array.isArray(raw) || !raw.every((path): path is string => typeof path === 'string')) {
       throw new Error('Invalid mobile vault registry.');
     }
     return raw.map((path) => destination(path));
   }
+  // eslint-disable-next-line obsidian-dev-toolkit/prefer-active-window -- Obsidian's native bridge is a main-window global.
   const raw: unknown = window.electron.ipcRenderer.sendSync('vault-list');
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
     throw new Error('Unavailable desktop vault registry.');
@@ -44,6 +45,7 @@ export function openVaultUri(app: App, url: string): void {
     app.workspace.protocolHandler.execCapacitorUrl(url);
     return;
   }
+  // eslint-disable-next-line obsidian-dev-toolkit/prefer-active-window -- Obsidian's native bridge is a main-window global.
   const emitter: unknown = window.electron.remote.app;
   if (!checkNativeUriEmitter(emitter) || !emitter.emit('open-url', { preventDefault: noop }, url)) {
     throw new Error('Native Obsidian URI dispatch is unavailable.');
@@ -52,6 +54,7 @@ export function openVaultUri(app: App, url: string): void {
 
 export async function pickVaultFolder(app: App): Promise<DestinationVault | null> {
   if (app.isMobile) {
+    // eslint-disable-next-line obsidian-dev-toolkit/prefer-active-window -- Obsidian's native bridge is a main-window global.
     const picker: unknown = window.Capacitor.Plugins.Filesystem;
     if (!checkMobileFolderPicker(picker)) {
       throw new Error('Folder selection is unavailable on this device. Register the destination in Obsidian first.');
@@ -65,6 +68,7 @@ export async function pickVaultFolder(app: App): Promise<DestinationVault | null
     }
     return destination(selection.path);
   }
+  // eslint-disable-next-line obsidian-dev-toolkit/prefer-active-window -- Obsidian's native bridge is a main-window global.
   const selection = await window.electron.remote.dialog.showOpenDialog({ properties: ['openDirectory'], title: 'Choose destination vault folder' });
   const path = selection.filePaths[0];
   if (selection.canceled || !path) {
@@ -72,6 +76,7 @@ export async function pickVaultFolder(app: App): Promise<DestinationVault | null
   }
   // A failed or unavailable unofficial registration leaves the trusted destination copyable.
   try {
+    // eslint-disable-next-line obsidian-dev-toolkit/prefer-active-window -- Obsidian's native bridge is a main-window global.
     window.electron.ipcRenderer.sendSync('vault-open', path, false);
   } catch {
     return destination(path);

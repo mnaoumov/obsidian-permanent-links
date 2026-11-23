@@ -98,7 +98,7 @@ export function findSubpathTarget(params: FindSubpathTargetParams): null | Subpa
  * @returns The block id.
  */
 export function generateBlockId(): string {
-  const values = window.crypto.getRandomValues(new Uint8Array(BLOCK_ID_LENGTH));
+  const values = activeWindow.crypto.getRandomValues(new Uint8Array(BLOCK_ID_LENGTH));
   return Array.from(values, (value) => BLOCK_ID_ALPHABET.charAt(value % BLOCK_ID_ALPHABET.length)).join('');
 }
 
