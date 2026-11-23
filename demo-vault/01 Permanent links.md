@@ -1,6 +1,6 @@
 # Permanent links
 
-A permanent link looks like `obsidian://permanent-links?vault=<vault>&key=<key>`. It names the file by a key, not by a path, so it keeps working after the file moves. A file gets a key only when you ask for one: `Permanent Links` never keys every file in the vault.
+A permanent link looks like `obsidian://permanent-links?vault=<vault>&key=<key>`. It names the file by a key, not by a path, so it keeps working after the file moves. A file gets a key only when you ask for one: `Permanent Links` keys every file in a folder or in the vault only when you tell it to, as [Key every file in a folder](#key-every-file-in-a-folder) describes.
 
 A note keeps its keys in the `keys` frontmatter list, so the key travels with the note and a text search finds it. An attachment cannot carry frontmatter, so its keys live in the plugin's `keys.json`. Every command below works on the active file, and on any file from its context menu in the File explorer.
 
@@ -31,6 +31,12 @@ Select several files in the File explorer (`Ctrl`-click or `Shift`-click, `Cmd`-
 ```
 
 Manual equivalent: select `Project plan` and `floor-plan.svg` in `Materials/01 Permanent links/`, right-click and choose **Copy permanent link**. A selection that includes a folder does not offer the item.
+
+## Key every file in a folder
+
+Right-click a folder in the File explorer and choose **Key every file in folder**. It counts the files in that folder and the folders inside it that have no key, asks before it writes anything, and then gives each one a generated key: notes in their `keys` property, attachments in `keys.json`. Files that already have keys keep them. A notice says how many files were keyed, and names any file it could not key.
+
+Manual equivalent: right-click `Materials/01 Permanent links` and choose **Key every file in folder**, or run **`Permanent Links`: Key every file in folder** from the Command Palette, which works on the folder of the active file. To key every file in the vault, now and from then on, turn on **Key every file automatically** in [Settings](<./05 Settings.md>).
 
 ## Open a link to a heading or a block
 

@@ -45,6 +45,15 @@ export class PluginSettingsTab extends PluginSettingsTabBase<PluginSettings> {
         }
       }),
       this.settingEx({
+        desc: 'Give a generated key to every file that has none: all files when this is turned on and each time the vault loads, and every new file when it is created. Every note gets a keys property. A file whose key you removed gets a new one at the next load. Turning this off removes no keys.',
+        name: 'Key every file automatically',
+        render: (setting) => {
+          setting.addToggle((toggle) => {
+            this.bind({ propertyName: 'shouldKeyFilesAutomatically', valueComponent: toggle });
+          });
+        }
+      }),
+      this.settingEx({
         desc: 'Also list every note key in the note\'s aliases, so the Quick Switcher and link suggestions find the note by its key. Aliases you wrote are kept. Turning this off leaves the added aliases in place.',
         name: 'Mirror keys into aliases',
         render: (setting) => {

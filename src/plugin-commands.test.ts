@@ -48,6 +48,8 @@ interface PluginInternals {
   readonly getKeyService: () => KeyService;
   readonly getPluginApis: () => PluginApiDeclaration<PermanentLinksApi>[];
   readonly initializeKeys: (settings: PluginSettingsComponent) => Promise<void>;
+  readonly keyFolder: (folder: import('obsidian').TFolder) => Promise<void>;
+  readonly keyNewFile: (path: string, service: KeyService) => Promise<void>;
   readonly manageTombstones: () => Promise<void>;
   readonly openPermanentLink: (params: Partial<import('obsidian').ObsidianProtocolData>, settings: PluginSettingsComponent) => Promise<void>;
   readonly pluginSettingsComponent: PluginSettingsComponent;
@@ -59,6 +61,8 @@ interface PluginInternals {
 
 const MANIFEST: PluginManifest = { author: 'test', description: 'test', id: 'permanent-links', minAppVersion: '1.14.4', name: 'Permanent Links', version: '0.0.0' };
 const STORE_SUFFIX = '/plugins/permanent-links/keys.json';
+// The folder test writes several files through the mock vault, which takes over 3 s on a loaded machine.
+const FOLDER_TEST_TIMEOUT_IN_MILLISECONDS = 30_000;
 
 async function createFixture(): Promise<PluginFixture> {
   const mockApp = App.createConfigured__();
@@ -589,8 +593,123 @@ describe('plugin key commands', () => {
         definition.render(new SettingEx(tab.containerEl), castTo<import('obsidian').SettingGroup>(null));
       }
     }
-    expect(bind.mock.calls.map(([params]) => params.propertyName)).toEqual(['keyFormat', 'keyPropertyName', 'redirectorBaseUrl', 'shouldMirrorKeysToAliases', 'shouldResolveUniqueFileNames']);
+    expect(bind.mock.calls.map(([params]) => params.propertyName)).toEqual([
+      'keyFormat',
+      'keyPropertyName',
+      'redirectorBaseUrl',
+      'shouldKeyFilesAutomatically',
+      'shouldMirrorKeysToAliases',
+      'shouldResolveUniqueFileNames'
+    ]);
     expect(definitions).toEqual(expect.arrayContaining([expect.objectContaining({ name: 'Key property name' })]));
+    plugin.unload();
+  });
+});
+
+describe('keying many files', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('keys every unkeyed file in a folder from its context menu after confirmation', async () => {
+    const { api, app, file, internals, plugin } = await createFixture();
+    const notice = vi.spyOn(PluginNoticeComponent.prototype, 'showNotice');
+    const folder = await app.vault.createFolder('Folder');
+    const note = await app.vault.create('Folder/a.md', 'Body');
+    await app.vault.createFolder('Folder/deep');
+    const attachment = await app.vault.create('Folder/deep/b.pdf', 'data');
+    const keyed = await app.vault.create('Folder/keyed.md', 'Body');
+    await api.addKey(keyed, 'kept');
+
+    const menu = Menu.create2__();
+    app.workspace.trigger('file-menu', menu, folder, 'file-explorer');
+    const item = ensureNonNullable(flattenMenuItems(menu).find((value) => value.title__ === 'Key every file in folder'));
+    vi.mocked(confirm).mockResolvedValueOnce(false);
+    ensureNonNullable(item.onClick__)(new MouseEvent('click'));
+    await vi.waitFor(() => {
+      expect(confirm).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringContaining('2 files without one in folder Folder') as unknown }));
+    });
+    expect(api.getKeys(note)).toEqual([]);
+
+    vi.mocked(confirm).mockResolvedValueOnce(true);
+    await internals.keyFolder(folder);
+    expect(api.getKeys(note)).toHaveLength(1);
+    expect(api.getKeys(attachment)).toHaveLength(1);
+    expect(api.getKeys(keyed)).toEqual(['kept']);
+    expect(api.getKeys(file)).toEqual([]);
+    expect(await app.vault.read(note)).toContain('keys:');
+    expect(notice).toHaveBeenLastCalledWith('Gave permanent keys to 2 files in folder Folder.');
+
+    await internals.keyFolder(folder);
+    expect(notice).toHaveBeenLastCalledWith('Every file in folder Folder already has a permanent key.');
+
+    vi.mocked(confirm).mockResolvedValueOnce(true);
+    await internals.keyFolder(app.vault.getRoot());
+    expect(confirm).toHaveBeenLastCalledWith(expect.objectContaining({ message: expect.stringContaining('1 file without one in the vault') as unknown }));
+    expect(api.getKeys(file)).toHaveLength(1);
+    plugin.unload();
+  }, FOLDER_TEST_TIMEOUT_IN_MILLISECONDS);
+
+  it('keys every file when the setting is turned on, then every new file, resolving copied keys first', async () => {
+    const { api, app, file, internals, plugin } = await createFixture();
+    Object.defineProperty(plugin, 'newNoteSettleInMilliseconds', { value: 0 });
+    const notice = vi.spyOn(PluginNoticeComponent.prototype, 'showNotice');
+    const attachment = await app.vault.create('report.pdf', 'data');
+    await internals.getKeyService().reconcile();
+    expect(api.getKeys(attachment)).toEqual([]);
+    await internals.pluginSettingsComponent.editAndSave((settings) => {
+      settings.shouldKeyFilesAutomatically = true;
+    });
+    await vi.waitFor(() => {
+      expect(notice).toHaveBeenCalledWith('Gave permanent keys to 2 files in the vault.');
+    });
+    expect(api.getKeys(file)).toHaveLength(1);
+    expect(api.getKeys(attachment)).toHaveLength(1);
+
+    const created = await app.vault.create('new.md', 'Body');
+    const image = await app.vault.create('image.png', 'data');
+    await vi.waitFor(() => {
+      expect(api.getKeys(created)).toHaveLength(1);
+      expect(api.getKeys(image)).toHaveLength(1);
+    });
+
+    const original = ensureNonNullable(api.getKeys(file)[0]);
+    const copy = await app.vault.create('copy.md', `---\nkeys: [${original}]\n---\nCopy body`);
+    await vi.waitFor(() => {
+      expect(api.getKeys(copy)).toHaveLength(1);
+    });
+    expect(api.getKeys(copy)).not.toContain(original);
+    expect(api.getKeys(file)).toEqual([original]);
+
+    await app.vault.createFolder('new-folder');
+    await internals.keyNewFile('missing.md', internals.getKeyService());
+    await internals.pluginSettingsComponent.editAndSave((settings) => {
+      settings.redirectorBaseUrl = 'https://links.example.com/open';
+    });
+    notice.mockClear();
+    await internals.initializeKeys(internals.pluginSettingsComponent);
+    await internals.getKeyService().reconcile();
+    expect(notice).not.toHaveBeenCalledWith(expect.stringContaining('Gave permanent keys'));
+    plugin.unload();
+  });
+
+  it('reports files it could not key and leaves files alone while the setting is off', async () => {
+    const { api, app, file, internals, plugin } = await createFixture();
+    Object.defineProperty(plugin, 'newNoteSettleInMilliseconds', { value: 0 });
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const notice = vi.spyOn(PluginNoticeComponent.prototype, 'showNotice');
+    const created = await app.vault.create('off.md', 'Body');
+    await internals.getKeyService().reconcile();
+    expect(api.getKeys(created)).toEqual([]);
+    vi.spyOn(app.fileManager, 'processFrontMatter').mockRejectedValue(new Error('locked'));
+    await internals.pluginSettingsComponent.editAndSave((settings) => {
+      settings.shouldKeyFilesAutomatically = true;
+    });
+    await vi.waitFor(() => {
+      expect(notice).toHaveBeenCalledWith(expect.stringContaining('Gave permanent keys to 0 files in the vault. Could not key 2'));
+    });
+    expect(api.getKeys(file)).toEqual([]);
+    await internals.pluginSettingsComponent.editAndSave((settings) => {
+      settings.shouldKeyFilesAutomatically = false;
+    });
     plugin.unload();
   });
 });
