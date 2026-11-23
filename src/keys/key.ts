@@ -10,11 +10,11 @@ export type KeyFormat = 'guid' | 'short';
 
 export function generateKey(format: KeyFormat = 'short'): string {
   if (format === 'guid') {
-    return window.crypto.randomUUID().replaceAll('-', '');
+    return activeWindow.crypto.randomUUID().replaceAll('-', '');
   }
   let key = '';
   while (key.length < KEY_LENGTH) {
-    const bytes = window.crypto.getRandomValues(new Uint8Array(KEY_LENGTH));
+    const bytes = activeWindow.crypto.getRandomValues(new Uint8Array(KEY_LENGTH));
     for (const byte of bytes) {
       // Rejection sampling avoids favouring the first alphabet characters.
       if (byte < UNBIASED_BYTE_LIMIT && key.length < KEY_LENGTH) {

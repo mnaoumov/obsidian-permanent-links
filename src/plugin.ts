@@ -150,7 +150,7 @@ export class Plugin extends PluginBase {
 
   private async copyLink(file: TFile, settings: PluginSettingsComponent, subpath: LinkSubpath = {}): Promise<void> {
     const link = await this.buildLink(file, settings, subpath);
-    await window.navigator.clipboard.writeText(link);
+    await activeWindow.navigator.clipboard.writeText(link);
     this.pluginNoticeComponent.showNotice(
       isValidRedirectorBaseUrl(settings.settings.redirectorBaseUrl)
         ? 'Permanent link copied.'
@@ -164,7 +164,7 @@ export class Plugin extends PluginBase {
     for (const file of files) {
       entries.push({ link: await this.buildLink(file, settings), name: file.extension === 'md' ? file.basename : file.name });
     }
-    await window.navigator.clipboard.writeText(formatLinkList(entries));
+    await activeWindow.navigator.clipboard.writeText(formatLinkList(entries));
     this.pluginNoticeComponent.showNotice(
       isValidRedirectorBaseUrl(settings.settings.redirectorBaseUrl)
         ? `Permanent links of ${String(files.length)} files copied.`
@@ -555,7 +555,7 @@ export class Plugin extends PluginBase {
     button.textContent = 'Copy new link';
     button.addEventListener('click', () => {
       invokeAsyncSafely(async () => {
-        await window.navigator.clipboard.writeText(link);
+        await activeWindow.navigator.clipboard.writeText(link);
         this.pluginNoticeComponent.showNotice('New permanent link copied.');
       });
     });
