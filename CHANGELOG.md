@@ -1,5 +1,29 @@
 # CHANGELOG
 
+## 1.1.0
+
+This release has 4 new features, 1 fix and 6 documentation changes. 9 maintenance commits (tests, build, CI, refactoring, dependencies) are not listed.
+
+### New
+
+- (Toggleable) Automatic Permanent-Linking (#1)
+- copy permanent links of several files selected in the File explorer
+- copy a permanent link to the heading or block at the cursor
+- add an opt-in redirector base URL for copied permanent links
+
+### Fixed
+
+- load again after an update or Hot Reload instead of failing on an already published API
+
+### Documentation
+
+- refresh the See also section
+- restore the README badge line
+- use the plugin badge line in the README
+- point the install section at the community directory listing
+- record the current integration harness version
+- link the changelog now that 1.0.0 is released
+
 ## 1.0.0
 
 First release of `Permanent Links`: give a note or an attachment a permanent key when you ask for one, and open it through a link that keeps working wherever the file moves.

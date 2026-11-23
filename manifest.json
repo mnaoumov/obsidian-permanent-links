@@ -5,7 +5,7 @@
   "fundingUrl": "https://www.buymeacoffee.com/mnaoumov",
   "id": "permanent-links",
   "isDesktopOnly": false,
-  "minAppVersion": "1.15.0",
+  "minAppVersion": "1.15.1",
   "name": "Permanent Links",
-  "version": "1.0.0"
+  "version": "1.1.0"
 }
