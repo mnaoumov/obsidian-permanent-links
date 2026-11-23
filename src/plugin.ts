@@ -3,11 +3,13 @@ import type {
   Editor,
   MarkdownFileInfo,
   ObsidianProtocolData,
-  TFile
+  TFile,
+  TFolder
 } from 'obsidian';
 
 import { OpenBugReportCommandHandler } from '@mnaoumov/obsidian-lib/command-handlers/open-bug-report-command-handler';
 import { OpenDemoVaultCommandHandler } from '@mnaoumov/obsidian-lib/command-handlers/open-demo-vault-command-handler';
+import { registerAsyncEvent } from '@mnaoumov/obsidian-lib/components/async-events-component';
 import { CallbackLayoutReadyComponent } from '@mnaoumov/obsidian-lib/components/layout-ready-component';
 import { PluginSettingsTabComponent } from '@mnaoumov/obsidian-lib/components/plugin-settings-tab-component';
 import { PluginDataHandler } from '@mnaoumov/obsidian-lib/data-handler';
@@ -18,7 +20,10 @@ import { prompt } from '@mnaoumov/obsidian-lib/modals/prompt';
 import { selectItem } from '@mnaoumov/obsidian-lib/modals/select-item';
 import { PluginBase } from '@mnaoumov/obsidian-lib/plugin/plugin';
 import { PluginEventSourceImpl } from '@mnaoumov/obsidian-lib/plugin/plugin-event-source';
-import { invokeAsyncSafely } from '@mnaoumov/typescript-lib/async';
+import {
+  invokeAsyncSafely,
+  setTimeoutAsync
+} from '@mnaoumov/typescript-lib/async';
 import { ensureNonNullable } from '@mnaoumov/typescript-lib/type-guards';
 import {
   MarkdownView,
@@ -33,8 +38,14 @@ import {
   areKeysMirrored,
   mirrorKeysIntoFrontmatter
 } from './keys/aliases.ts';
+import {
+  formatKeyFilesResult,
+  isInFolder,
+  keyFiles
+} from './keys/bulk-keys.ts';
 import { KeyCommandHandler } from './keys/key-command-handler.ts';
 import { resolveKeyEdit } from './keys/key-edit-modal.ts';
+import { KeyFolderCommandHandler } from './keys/key-folder-command-handler.ts';
 import { KeyForwarder } from './keys/key-forwarder.ts';
 import { KeyService } from './keys/key-service.ts';
 import { generateKey } from './keys/key.ts';
@@ -61,6 +72,7 @@ import { PluginSettingsComponent } from './plugin-settings-component.ts';
 import { PluginSettingsTab } from './plugin-settings-tab.ts';
 
 const JSON_INDENT = 2;
+const NEW_NOTE_SETTLE_IN_MILLISECONDS = 1000;
 const INVALID_REDIRECTOR_REASON = 'the redirector base URL in the settings is not an http or https address without a #.';
 
 interface LinkSubpath {
@@ -71,6 +83,7 @@ interface LinkSubpath {
 export class Plugin extends PluginBase {
   private keyService?: KeyService;
   private keysReady?: Promise<void>;
+  private readonly newNoteSettleInMilliseconds = NEW_NOTE_SETTLE_IN_MILLISECONDS;
 
   protected override getPluginApis(): PluginApiDeclaration[] {
     const api: PermanentLinksApi = {
@@ -266,10 +279,25 @@ export class Plugin extends PluginBase {
       invokeAsyncSafely(async () => {
         await loading;
         await service.revivePath(file.path);
+        if (settings.settings.shouldKeyFilesAutomatically) {
+          await this.keyNewFile(file.path, service);
+        }
       });
     }));
     await loading;
     this.keyService = service;
+    registerAsyncEvent(
+      this,
+      settings.on('saveSettings', (newState, oldState) => {
+        if (newState.effectiveValues.shouldKeyFilesAutomatically && !oldState.effectiveValues.shouldKeyFilesAutomatically) {
+          invokeAsyncSafely(() => this.keyEveryFile(service));
+        }
+      })
+    );
+    if (settings.settings.shouldKeyFilesAutomatically) {
+      // Not awaited: links must open while a large vault is still being keyed. The service serializes the writes.
+      invokeAsyncSafely(() => this.keyEveryFile(service));
+    }
     this.addChild(new NoteComposerComponent(this.app, service));
     await this.commandHandlerComponent.registerCommandHandlers(() => [
       new KeyCommandHandler({
@@ -281,9 +309,61 @@ export class Plugin extends PluginBase {
       }),
       new KeyCommandHandler({ execute: (file): Promise<void> => this.setKey(file), icon: 'key', id: 'set-key', name: 'Set key' }),
       new KeyCommandHandler({ execute: (file): Promise<void> => this.removeKey(file), icon: 'unlink', id: 'remove-key', name: 'Remove key' }),
+      new KeyFolderCommandHandler((folder): Promise<void> => this.keyFolder(folder)),
       new SubpathLinkCommandHandler((editor, context, file): Promise<void> => this.copySubpathLink(editor, context, file, settings)),
       new TombstoneCommandHandler(() => this.manageTombstones())
     ]);
+  }
+
+  private async keyEveryFile(service: KeyService): Promise<void> {
+    const result = await this.keyPaths(this.app.vault.getFiles().map((file) => file.path), service);
+    if (result.keyedCount > 0 || result.failedPaths.length > 0) {
+      this.pluginNoticeComponent.showNotice(formatKeyFilesResult(result, 'the vault'));
+    }
+  }
+
+  private async keyFolder(folder: TFolder): Promise<void> {
+    const service = this.getKeyService();
+    const scope = folder.isRoot() ? 'the vault' : `folder ${folder.path}`;
+    const paths = this.app.vault.getFiles().map((file) => file.path).filter((path) => isInFolder(path, folder.path) && service.getKeys(path).length === 0);
+    if (paths.length === 0) {
+      this.pluginNoticeComponent.showNotice(`Every file in ${scope} already has a permanent key.`);
+      return;
+    }
+    const isConfirmed = await confirm({
+      app: this.app,
+      message: `Give a generated permanent key to ${String(paths.length)} ${paths.length === 1 ? 'file' : 'files'} without one in ${scope}? Every note among them gets a keys property.`,
+      okButtonText: 'Key files',
+      title: 'Key every file in folder'
+    });
+    if (!isConfirmed) {
+      return;
+    }
+    this.pluginNoticeComponent.showNotice(formatKeyFilesResult(await this.keyPaths(paths, service), scope));
+  }
+
+  private async keyNewFile(path: string, service: KeyService): Promise<void> {
+    const file = this.app.vault.getFileByPath(path);
+    if (!file) {
+      return;
+    }
+    if (file.extension === 'md') {
+      // Template plugins fill a new note right after it is created; a key written before that would be overwritten.
+      await setTimeoutAsync(this.newNoteSettleInMilliseconds);
+      // A copied note carries the original's keys: read them first, so the duplicate is resolved before a key is added.
+      await getCacheSafe(this.app, file);
+      await service.reconcile([path]);
+    }
+    await this.keyPaths([path], service);
+  }
+
+  private keyPaths(paths: readonly string[], service: KeyService): ReturnType<typeof keyFiles> {
+    return keyFiles({
+      assignKey: (path): Promise<string> => service.assignKey(path),
+      fileExists: (path): boolean => this.app.vault.getFileByPath(path) !== null,
+      hasKeys: (path): boolean => service.getKeys(path).length > 0,
+      paths
+    });
   }
 
   private async manageTombstones(): Promise<void> {
