@@ -39,7 +39,7 @@ Ids that survive a move are a long-standing request: people in the Obsidian comm
 
 A copy of the vault ships with every release. You can access it via any of the following:
 
-1. Running the **`Permanent Links`: Open demo vault** command.
+1. Running the **`Permanent Links`: Open demo vault** command, on desktop. The command is not available on mobile, so use the next option there.
 2. Downloading `permanent-links-demo-vault.zip` from the [Releases](https://github.com/mnaoumov/obsidian-permanent-links/releases). It unzips into a single `permanent-links-demo-vault-<version>` folder.
 3. Browsing its source in [`demo-vault/`](./demo-vault/README.md) in this repository.
 
